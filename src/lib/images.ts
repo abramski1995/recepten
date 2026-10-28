@@ -1,6 +1,6 @@
-// Client side of AI photo generation. Generation runs in a background function; the client
-// triggers it and then polls the recipe until image_url shows up.
-import { UnauthorizedError, clearToken, getRecipe, getToken } from "./api.ts";
+// Client side of photo finding/generation. It runs in a background function; the client
+// triggers it (automatically for new recipes) and the pages poll until image_url shows up.
+import { UnauthorizedError, clearToken, getToken } from "./api.ts";
 
 const PENDING_KEY = "recepten-pending-images";
 const MAX_WAIT_MS = 3 * 60 * 1000;
@@ -55,18 +55,4 @@ export async function requestImage(id: string, force = false, previousUrl: strin
   }
   if (!res.ok) throw new Error("Foto genereren kon niet gestart worden");
   writePending({ ...readPending(), [id]: { started: Date.now(), previous: previousUrl } });
-}
-
-// Resolves true when the recipe got a (new) image within the time limit.
-export async function waitForImage(id: string, previousUrl: string | null, timeoutMs = 120_000): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 4000));
-    const { image_url } = await getRecipe(id);
-    if (image_url && image_url !== previousUrl) {
-      clearPendingImages([id]);
-      return true;
-    }
-  }
-  return false;
 }

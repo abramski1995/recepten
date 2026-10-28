@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { UnauthorizedError, listRecipes, translateRecipe, updateRecipe } from "../lib/api.ts";
 import { autoTags, mergeTags } from "../lib/autotag.ts";
 import { filterRecipes, tagCounts } from "../lib/filter.ts";
-import { requestImage, waitForImage } from "../lib/images.ts";
 import { looksDutch } from "../lib/lang.ts";
 import { useImagePolling } from "../lib/useImagePolling.ts";
 import { go } from "../lib/useRoute.ts";
@@ -67,39 +66,6 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
       if (e instanceof UnauthorizedError) onUnauthorized();
     } finally {
       setTagging(null);
-    }
-  }
-
-  // One photo at a time: image APIs rate-limit new accounts, and this keeps the cost visible.
-  async function generateMissingImages() {
-    if (!data) return;
-    const missing = data.filter((r) => !r.image_url);
-    if (missing.length === 0) return alert("Alle recepten hebben al een foto.");
-    if (
-      !confirm(
-        `Foto's zoeken voor ${missing.length} recepten? Eerst wordt de foto van de bronpagina gebruikt; lukt dat niet, dan maakt de AI er een (kost een paar cent per foto). Dat duurt tot ongeveer ${Math.ceil(missing.length / 4)} minuten. Laat dit scherm open staan.`,
-      )
-    )
-      return;
-    let failed = 0;
-    try {
-      for (const [i, r] of missing.entries()) {
-        setTagging(`Foto's zoeken… ${i + 1} van ${missing.length}`);
-        try {
-          await requestImage(r.id);
-          if (!(await waitForImage(r.id, null))) failed++;
-          else setReload((n) => n + 1);
-        } catch (e) {
-          if (e instanceof UnauthorizedError) throw e;
-          failed++;
-        }
-      }
-      if (failed) alert(`Bij ${failed} recepten is geen foto gekomen. Probeer het later nog eens.`);
-    } catch (e) {
-      if (e instanceof UnauthorizedError) onUnauthorized();
-    } finally {
-      setTagging(null);
-      setReload((n) => n + 1);
     }
   }
 
@@ -177,10 +143,6 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
           {" · "}
           <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={translateAll}>
             Engelse recepten vertalen
-          </button>
-          {" · "}
-          <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={generateMissingImages}>
-            Foto's zoeken
           </button>
         </p>
       )}

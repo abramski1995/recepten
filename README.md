@@ -50,7 +50,7 @@ Een link wordt in drie stappen verwerkt: (1) staat er een gestructureerd recept 
 ## Foto's
 Een foto wordt in deze volgorde gezocht: (1) de foto van de **bronpagina** (de link van het recept: schema.org-afbeelding, anders `og:image`), (2) anders een **AI-foto** (OpenAI `gpt-image-1`, lage kwaliteit, vierkant). Een stap voor zoeken in een afbeeldingszoekmachine is bewust overgeslagen: Google's Image Search API is gesloten voor nieuwe klanten.
 - Nieuwe recepten zonder foto krijgen na het opslaan automatisch een foto. Heeft een link-import al een foto van de site, dan blijft die.
-- Onderaan de receptenlijst: ‘Foto's zoeken’ voor alle recepten zonder foto (één voor één, met bevestiging vooraf; scherm open laten). Op een receptpagina: ‘Foto zoeken’ of ‘Nieuwe AI-foto’ (die slaat de bronfoto over).
+- Alleen **nieuwe** recepten krijgen automatisch een foto; bestaande recepten worden niet in bulk aangepast. Op een receptpagina kun je handmatig ‘Foto zoeken’ of ‘Nieuwe AI-foto’ (die slaat de bronfoto over) kiezen.
 - Bronfoto's worden gedownload en in de Supabase-bucket `recipe-images` bewaard (niet gehotlinkt, want social-media-links verlopen). Let op: dat is een kopie van andermans foto, bedoeld voor persoonlijk gebruik.
 - Het werk gebeurt in een Netlify *background function* (`generate-image-background`, mag minuten duren); de app ververst zelf tot de foto er is. Sites als Instagram blokkeren vaak het ophalen; dan valt het automatisch terug op AI.
 - AI-model aanpasbaar met `OPENAI_IMAGE_MODEL`. Kosten: een paar cent per AI-foto; controleer de actuele prijs bij OpenAI.
