@@ -8,6 +8,7 @@ import {
   importFromUrl,
   updateRecipe,
 } from "../lib/api.ts";
+import { autoTags, mergeTags } from "../lib/autotag.ts";
 import { imageToBase64Jpeg } from "../lib/image.ts";
 import { go } from "../lib/useRoute.ts";
 import { emptyRecipe, type RecipeInput } from "../types.ts";
@@ -35,6 +36,12 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
     setTags(r.tags.join(", "));
   }
 
+  // Imports get suggested tags (kept next to whatever the source provided); the user can edit them.
+  function fillImported(r: RecipeInput) {
+    const full = { ...emptyRecipe, ...r };
+    fill({ ...full, tags: mergeTags(full.tags, autoTags(full)) });
+  }
+
   function fail(e: unknown) {
     if (e instanceof UnauthorizedError) onUnauthorized();
     else setError(e instanceof Error ? e.message : "Er ging iets mis");
@@ -50,7 +57,7 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
     setBusy(true);
     setError(null);
     try {
-      fill({ ...emptyRecipe, ...(await importFromUrl(importUrl.trim())) });
+      fillImported(await importFromUrl(importUrl.trim()));
     } catch (e) {
       fail(e);
     } finally {
@@ -62,7 +69,7 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
     setBusy(true);
     setError(null);
     try {
-      fill({ ...emptyRecipe, ...(await task()) });
+      fillImported(await task());
       setPastedText("");
     } catch (e) {
       fail(e);

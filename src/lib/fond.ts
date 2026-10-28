@@ -1,5 +1,6 @@
 // Converts a Fond data export (JSON, export version 2) into recipes for this app.
 import type { RecipeInput } from "../types.ts";
+import { autoTags } from "./autotag.ts";
 
 interface FondNode {
   id: number;
@@ -72,7 +73,7 @@ export function convertFondExport(data: unknown): FondConversion {
     const key = `${r.title.toLowerCase()}|${r.url ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    recipes.push({
+    const recipe: RecipeInput = {
       title: r.title,
       source_url: r.url ?? null,
       image_url: null,
@@ -83,7 +84,9 @@ export function convertFondExport(data: unknown): FondConversion {
       ingredients: (r.ingredients ?? []).map((i) => i.trim()).filter(Boolean),
       steps: r.nodes!.map((n) => `${n.title} — ${plain(n.text)}`),
       tags: [],
-    });
+    };
+    recipe.tags = autoTags(recipe);
+    recipes.push(recipe);
   }
   return { recipes, skipped: stillSkipped };
 }

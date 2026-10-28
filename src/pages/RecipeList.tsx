@@ -1,16 +1,42 @@
 import { useMemo, useState } from "react";
-import { listRecipes } from "../lib/api.ts";
-import { allTags, filterRecipes } from "../lib/filter.ts";
+import { UnauthorizedError, listRecipes, updateRecipe } from "../lib/api.ts";
+import { autoTags, mergeTags } from "../lib/autotag.ts";
+import { filterRecipes, tagCounts } from "../lib/filter.ts";
 import { go } from "../lib/useRoute.ts";
 import { useLoad } from "../lib/useLoad.ts";
 
 export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
-  const { data, error } = useLoad(listRecipes, onUnauthorized, []);
+  const [reload, setReload] = useState(0);
+  const { data, error } = useLoad(listRecipes, onUnauthorized, [reload]);
   const [query, setQuery] = useState("");
-  const [tag, setTag] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [tagging, setTagging] = useState<string | null>(null);
 
-  const tags = useMemo(() => (data ? allTags(data) : []), [data]);
-  const shown = useMemo(() => (data ? filterRecipes(data, query, tag) : []), [data, query, tag]);
+  const tags = useMemo(() => (data ? tagCounts(data) : []), [data]);
+  const shown = useMemo(() => (data ? filterRecipes(data, query, selected) : []), [data, query, selected]);
+  const toggle = (t: string) => setSelected((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
+
+  // Adds suggested tags to recipes that miss them; existing tags are kept.
+  async function addSmartTags() {
+    if (!data) return;
+    const changes = data
+      .map((r) => ({ r, tags: mergeTags(r.tags, autoTags(r)) }))
+      .filter(({ r, tags }) => tags.length !== r.tags.length);
+    if (!confirm(`Tags automatisch toevoegen aan ${changes.length} recepten? Bestaande tags blijven staan.`)) return;
+    try {
+      for (const [i, { r, tags }] of changes.entries()) {
+        setTagging(`Tags toevoegen… ${i + 1} van ${changes.length}`);
+        const { id: _id, created_at: _c, updated_at: _u, ...input } = r;
+        await updateRecipe(r.id, { ...input, tags });
+      }
+      setReload((n) => n + 1);
+    } catch (e) {
+      if (e instanceof UnauthorizedError) onUnauthorized();
+      else alert(e instanceof Error ? e.message : "Tags toevoegen mislukt");
+    } finally {
+      setTagging(null);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
@@ -31,15 +57,23 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
 
       {tags.length > 0 && (
         <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          {tags.map((t) => (
+          {selected.length > 0 && (
+            <button
+              onClick={() => setSelected([])}
+              className="shrink-0 rounded-full border border-orange-700 px-3 py-1 text-sm text-orange-800"
+            >
+              ✕ Wis filters
+            </button>
+          )}
+          {tags.map(({ tag: t, count }) => (
             <button
               key={t}
-              onClick={() => setTag(tag === t ? null : t)}
+              onClick={() => toggle(t)}
               className={`shrink-0 rounded-full px-3 py-1 text-sm ${
-                tag === t ? "bg-orange-700 text-white" : "bg-stone-200/70 text-stone-700"
+                selected.includes(t) ? "bg-orange-700 text-white" : "bg-stone-200/70 text-stone-700"
               }`}
             >
-              {t}
+              {t} <span className="opacity-60">{count}</span>
             </button>
           ))}
         </div>
@@ -70,7 +104,14 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
         ))}
       </ul>
 
-      <p className="mt-8 text-center text-sm text-stone-500">
+      {data && data.length > 0 && (
+        <p className="mt-8 text-center text-sm text-stone-500">
+          <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={addSmartTags}>
+            {tagging ?? "Tags automatisch toevoegen"}
+          </button>
+        </p>
+      )}
+      <p className="mt-4 text-center text-sm text-stone-500">
         <a href="#/import" className="underline">
           Importeren uit Fond
         </a>

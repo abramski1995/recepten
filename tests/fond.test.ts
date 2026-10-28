@@ -23,7 +23,7 @@ describe("convertFondExport", () => {
         total_minutes: 23,
         ingredients: ["200 g rijst", "1 ui"],
         steps: ["Kook rijst — Kook 200 g rijst.", "Snijd ui — Snijd 1 ui.", "Meng — Meng alles."],
-        tags: [],
+        tags: ["hoofdgerecht", "rijst", "vegetarisch", "snel"],
       },
     ]);
   });
