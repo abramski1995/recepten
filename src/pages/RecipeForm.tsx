@@ -7,9 +7,11 @@ import {
   importFromImage,
   importFromText,
   importFromUrl,
+  translateRecipe,
   updateRecipe,
 } from "../lib/api.ts";
 import { autoTags, mergeTags } from "../lib/autotag.ts";
+import { looksDutch } from "../lib/lang.ts";
 import { imageToBase64Jpeg } from "../lib/image.ts";
 import { go } from "../lib/useRoute.ts";
 import { emptyRecipe, type RecipeInput } from "../types.ts";
@@ -28,6 +30,8 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
   const [importUrl, setImportUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,18 +43,31 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
   }
 
   // Imports get suggested tags (kept next to whatever the source provided); the user can edit them.
-  function fillImported(r: RecipeInput) {
-    const full = { ...emptyRecipe, ...r };
-    fill({ ...full, tags: mergeTags(full.tags, autoTags(full)) });
+  // Links with structured data come in the site's own language, so those are translated to Dutch first.
+  async function fillImported(r: RecipeInput, translate = false) {
+    let full = { ...emptyRecipe, ...r };
+    let translated = false;
+    if (translate && !looksDutch(full)) {
+      setNotice("Vertalen naar Nederlands…");
+      try {
+        full = { ...full, ...(await translateRecipe(full)) };
+        translated = true;
+      } catch (e) {
+        if (e instanceof UnauthorizedError) throw e;
+        setImportError("Vertalen is niet gelukt; het originele recept is ingevuld.");
+      }
+    }
+    setNotice(null);
+    // Tags from a foreign-language source (e.g. "dinner") are dropped after translating; ours are Dutch.
+    fill({ ...full, tags: translated ? autoTags(full) : mergeTags(full.tags, autoTags(full)) });
   }
 
-  function fail(e: unknown) {
+  function fail(e: unknown, report: (message: string) => void = setError) {
     if (e instanceof UnauthorizedError) onUnauthorized();
     else if (e instanceof PasteHintError) {
       setAiOpen(true); // point the user to the paste-text box
-      setError(e.message);
-    }
-    else setError(e instanceof Error ? e.message : "Er ging iets mis");
+      report(e.message);
+    } else report(e instanceof Error ? e.message : "Er ging iets mis");
   }
 
   useEffect(() => {
@@ -61,11 +78,11 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
 
   async function runImport() {
     setBusy(true);
-    setError(null);
+    setImportError(null);
     try {
-      fillImported(await importFromUrl(importUrl.trim()));
+      await fillImported(await importFromUrl(importUrl.trim()), true);
     } catch (e) {
-      fail(e);
+      fail(e, setImportError);
     } finally {
       setBusy(false);
     }
@@ -73,12 +90,12 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
 
   async function runAi(task: () => Promise<RecipeInput>) {
     setBusy(true);
-    setError(null);
+    setImportError(null);
     try {
-      fillImported(await task());
+      await fillImported(await task());
       setPastedText("");
     } catch (e) {
-      fail(e);
+      fail(e, setImportError);
     } finally {
       setBusy(false);
     }
@@ -162,6 +179,8 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
               {busy ? "Bezig…" : "Tekst omzetten"}
             </button>
           </details>
+          {notice && <p className="mt-3 text-sm text-orange-800">{notice}</p>}
+          {importError && <p className="mt-3 text-sm text-red-700">{importError}</p>}
         </section>
       )}
 

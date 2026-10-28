@@ -80,3 +80,37 @@ describe("extractRecipeFromUrlWithAi", () => {
     await expect(extractRecipeFromUrlWithAi(url, client)).rejects.toThrow(NoRecipeError);
   });
 });
+
+import { translateRecipeToDutch } from "../netlify/lib/ai-import.ts";
+
+describe("translateRecipeToDutch", () => {
+  const source = {
+    title: "Tuna Pasta",
+    source_url: "https://x.com/r",
+    image_url: "https://x.com/i.jpg",
+    description: null,
+    servings: 2,
+    total_minutes: 20,
+    ingredients: ["2 tablespoons olive oil", "1 garlic clove"],
+    steps: ["Heat the oil.", "Add the garlic."],
+    tags: ["dinner"],
+  };
+  const out = (o: object) => JSON.stringify({ title: "Tonijnpasta", description: null, ingredients: ["2 el olijfolie", "1 teentje knoflook"], steps: ["Verhit de olie.", "Voeg de knoflook toe."], ...o });
+
+  it("replaces only text fields and keeps everything else", async () => {
+    const { client, create } = fakeClient(out({}));
+    const nl = await translateRecipeToDutch(source, client);
+    expect(nl).toMatchObject({ title: "Tonijnpasta", ingredients: ["2 el olijfolie", "1 teentje knoflook"], servings: 2, total_minutes: 20, source_url: "https://x.com/r", image_url: "https://x.com/i.jpg", tags: ["dinner"] });
+    expect(create.mock.calls[0][0].model).toBe("claude-haiku-5-5");
+  });
+
+  it("rejects a translation with a different number of lines", async () => {
+    const { client } = fakeClient(out({ ingredients: ["2 el olijfolie"] }));
+    await expect(translateRecipeToDutch(source, client)).rejects.toThrow(NoRecipeError);
+  });
+
+  it("rejects refusals and bad JSON", async () => {
+    await expect(translateRecipeToDutch(source, fakeClient(out({}), "refusal").client)).rejects.toThrow(NoRecipeError);
+    await expect(translateRecipeToDutch(source, fakeClient("nope").client)).rejects.toThrow(NoRecipeError);
+  });
+});

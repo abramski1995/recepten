@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { UnauthorizedError, listRecipes, updateRecipe } from "../lib/api.ts";
+import { UnauthorizedError, listRecipes, translateRecipe, updateRecipe } from "../lib/api.ts";
 import { autoTags, mergeTags } from "../lib/autotag.ts";
 import { filterRecipes, tagCounts } from "../lib/filter.ts";
+import { looksDutch } from "../lib/lang.ts";
 import { go } from "../lib/useRoute.ts";
 import { useLoad } from "../lib/useLoad.ts";
 
@@ -33,6 +34,34 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
     } catch (e) {
       if (e instanceof UnauthorizedError) onUnauthorized();
       else alert(e instanceof Error ? e.message : "Tags toevoegen mislukt");
+    } finally {
+      setTagging(null);
+    }
+  }
+
+  // Translates recipes that are not in Dutch yet (e.g. imported before translation existed).
+  async function translateAll() {
+    if (!data) return;
+    const foreign = data.filter((r) => !looksDutch(r));
+    if (foreign.length === 0) return alert("Alle recepten zijn al in het Nederlands.");
+    if (!confirm(`${foreign.length} Engelstalige recepten vertalen naar het Nederlands? Het origineel wordt vervangen.`)) return;
+    let failed = 0;
+    try {
+      for (const [i, r] of foreign.entries()) {
+        setTagging(`Vertalen… ${i + 1} van ${foreign.length}`);
+        const { id: _id, created_at: _c, updated_at: _u, ...input } = r;
+        try {
+          const nl = { ...input, ...(await translateRecipe(input)) };
+          await updateRecipe(r.id, { ...nl, tags: mergeTags(nl.tags, autoTags(nl)) });
+        } catch (e) {
+          if (e instanceof UnauthorizedError) throw e;
+          failed++;
+        }
+      }
+      if (failed) alert(`${failed} recepten konden niet vertaald worden.`);
+      setReload((n) => n + 1);
+    } catch (e) {
+      if (e instanceof UnauthorizedError) onUnauthorized();
     } finally {
       setTagging(null);
     }
@@ -108,6 +137,10 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
         <p className="mt-8 text-center text-sm text-stone-500">
           <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={addSmartTags}>
             {tagging ?? "Tags automatisch toevoegen"}
+          </button>
+          {" · "}
+          <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={translateAll}>
+            Engelse recepten vertalen
           </button>
         </p>
       )}

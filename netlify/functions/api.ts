@@ -4,9 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 import { checkPassword, createToken, verifyToken } from "../lib/auth.ts";
 import {
   DEFAULT_MODEL,
+  DEFAULT_TRANSLATE_MODEL,
   NoRecipeError,
   extractRecipeFromUrlWithAi,
   extractRecipeWithAi,
+  translateRecipeToDutch,
   type AiInput,
 } from "../lib/ai-import.ts";
 import { extractPageText, parseRecipeFromHtml } from "../lib/parse-recipe.ts";
@@ -84,6 +86,19 @@ export default async (req: Request): Promise<Response> => {
         }
       }
       return json({ error: PASTE_HINT, paste: true }, 422);
+    }
+
+    if (resource === "translate" && req.method === "POST") {
+      const body = (await readJson(req)) as { recipe?: unknown };
+      const { notes: _notes, ...recipe } = validateRecipe(body.recipe);
+      try {
+        const client = new Anthropic({ apiKey: env("ANTHROPIC_API_KEY") });
+        const model = Netlify.env.get("ANTHROPIC_TRANSLATE_MODEL") || DEFAULT_TRANSLATE_MODEL;
+        return json(await translateRecipeToDutch(recipe, client, model));
+      } catch (err) {
+        if (err instanceof NoRecipeError) return json({ error: err.message }, 422);
+        throw err;
+      }
     }
 
     if (resource === "import-ai" && req.method === "POST") {

@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { UnauthorizedError, createRecipe, listRecipes } from "../lib/api.ts";
+import { UnauthorizedError, createRecipe, listRecipes, translateRecipe } from "../lib/api.ts";
+import { autoTags } from "../lib/autotag.ts";
+import { looksDutch } from "../lib/lang.ts";
 import { convertFondExport, type FondConversion } from "../lib/fond.ts";
 import type { RecipeInput } from "../types.ts";
 
@@ -9,6 +11,7 @@ export function ImportFond({ onUnauthorized }: { onUnauthorized: () => void }) {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [translate, setTranslate] = useState(true);
 
   async function onFile(file: File) {
     setError(null);
@@ -33,8 +36,21 @@ export function ImportFond({ onUnauthorized }: { onUnauthorized: () => void }) {
         (r) => !known.has(`${r.title.toLowerCase()}|${r.source_url ?? ""}`),
       );
       let failed = 0;
-      for (const [i, recipe] of todo.entries()) {
+      let translated = 0;
+      let untranslated = 0;
+      for (const [i, original] of todo.entries()) {
         setProgress({ done: i, total: todo.length });
+        let recipe = original;
+        if (translate && !looksDutch(recipe)) {
+          try {
+            recipe = { ...recipe, ...(await translateRecipe(recipe)) };
+            recipe.tags = autoTags(recipe); // tags are keyword based, so redo them on the Dutch text
+            translated++;
+          } catch (e) {
+            if (e instanceof UnauthorizedError) throw e;
+            untranslated++; // keep the original text rather than losing the recipe
+          }
+        }
         try {
           await createRecipe(recipe);
         } catch (e) {
@@ -46,6 +62,8 @@ export function ImportFond({ onUnauthorized }: { onUnauthorized: () => void }) {
       setResult(
         `${todo.length - failed} recepten toegevoegd` +
           (conversion.recipes.length - todo.length ? `, ${conversion.recipes.length - todo.length} stonden er al` : "") +
+          (translated ? `, ${translated} vertaald naar het Nederlands` : "") +
+          (untranslated ? `, ${untranslated} niet kunnen vertalen (origineel bewaard)` : "") +
           (failed ? `, ${failed} mislukt` : "") +
           ".",
       );
@@ -101,6 +119,10 @@ export function ImportFond({ onUnauthorized }: { onUnauthorized: () => void }) {
               <li key={i}>{r.title}</li>
             ))}
           </ul>
+          <label className="mt-4 flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={translate} disabled={busy} onChange={(e) => setTranslate(e.target.checked)} />
+            Engelstalige recepten automatisch vertalen naar het Nederlands
+          </label>
           <button className="btn-primary mt-4 w-full" disabled={busy} onClick={run}>
             {progress ? `Bezig… ${progress.done + 1} van ${progress.total}` : busy ? "Bezig…" : "Importeren"}
           </button>

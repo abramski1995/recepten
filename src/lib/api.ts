@@ -45,6 +45,8 @@ export const createRecipe = (r: RecipeInput) =>
 export const updateRecipe = (id: string, r: RecipeInput) =>
   request<Recipe>(`recipes/${id}`, { method: "PUT", body: JSON.stringify(r) });
 export const deleteRecipe = (id: string) => request<{ ok: true }>(`recipes/${id}`, { method: "DELETE" });
+export const translateRecipe = (recipe: RecipeInput) =>
+  request<RecipeInput>("translate", { method: "POST", body: JSON.stringify({ recipe }) });
 export const importFromText = (text: string) =>
   request<RecipeInput>("import-ai", { method: "POST", body: JSON.stringify({ text }) });
 export const importFromImage = (media_type: string, data: string) =>

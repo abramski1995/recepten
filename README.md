@@ -40,5 +40,11 @@ Foto's worden in de browser verkleind (max 1600 px) en naar `/api/import-ai` ges
 ## Link-import en AI
 Een link wordt in drie stappen verwerkt: (1) staat er een gestructureerd recept op de pagina (de meeste receptensites), dan wordt dat direct gebruikt; (2) anders leest de AI de paginatekst (bijv. een videobeschrijving); (3) lukt dat niet, dan haalt Claude de link zelf op (web fetch). Sites als Instagram vragen vaak inloggen en kunnen dus geblokkeerd blijven; kopieer dan de beschrijving en plak die bij ‘tekst’ (het formulier opent dat vakje dan automatisch).
 
+## Vertalen naar Nederlands
+- Recepten uit een **link** worden na het ophalen automatisch vertaald als ze niet in het Nederlands zijn (aparte aanvraag, zodat de time-out niet in de weg zit).
+- **Foto's, geplakte tekst** en links die de AI zelf leest, komen direct in het Nederlands uit de AI.
+- Bij de **Fond-import** staat een vinkje ‘Engelstalige recepten vertalen’ (standaard aan). Onderaan de receptenlijst staat ‘Engelse recepten vertalen’ voor recepten die er al in staan.
+- Vertalen gebruikt standaard `claude-haiku-5-5` (snel en goedkoop); overschrijfbaar met `ANTHROPIC_TRANSLATE_MODEL`. Alleen titel, omschrijving, ingrediënten en stappen worden vertaald; hoeveelheden, link en tijd blijven ongewijzigd. Mislukt vertalen? Dan blijft het origineel staan.
+
 ## Roadmap
 - Later, indien gewenst: boodschappenlijst, weekplanner
