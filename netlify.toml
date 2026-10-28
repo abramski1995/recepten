@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  node_bundler = "esbuild"
+
+[dev]
+  command = "npm run dev:web"
+  targetPort = 5173
+
+# SPA fallback; /api/* is routed to the function via its own config.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
