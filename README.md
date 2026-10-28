@@ -1,4 +1,4 @@
-# Recepten
+# GijsRecepten
 
 Persoonlijke receptenapp (één gebruiker, één wachtwoord). Vite + React + TypeScript + Tailwind, PWA, Netlify Functions, Supabase.
 

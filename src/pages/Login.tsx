@@ -22,7 +22,7 @@ export function Login({ onDone }: { onDone: () => void }) {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-4">
-      <h1 className="text-3xl font-semibold text-orange-800">Recepten</h1>
+      <h1 className="text-3xl font-semibold text-orange-800">GijsRecepten</h1>
       <form onSubmit={submit} className="flex flex-col gap-3">
         <input
           className="input"

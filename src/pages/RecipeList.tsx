@@ -15,7 +15,7 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
       <header className="mb-4 flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-orange-800">Recepten</h1>
+        <h1 className="text-3xl font-semibold text-orange-800">GijsRecepten</h1>
         <button className="btn-primary" onClick={() => go("/new")}>
           + Nieuw
         </button>

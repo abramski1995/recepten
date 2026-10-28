@@ -10,8 +10,8 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "Recepten",
-        short_name: "Recepten",
+        name: "GijsRecepten",
+        short_name: "GijsRecepten",
         description: "Mijn persoonlijke receptenverzameling",
         lang: "nl",
         start_url: "/",
