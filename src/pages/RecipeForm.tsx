@@ -13,6 +13,7 @@ import {
 import { autoTags, mergeTags } from "../lib/autotag.ts";
 import { looksDutch } from "../lib/lang.ts";
 import { imageToBase64Jpeg } from "../lib/image.ts";
+import { requestImage } from "../lib/images.ts";
 import { go } from "../lib/useRoute.ts";
 import { emptyRecipe, type RecipeInput } from "../types.ts";
 
@@ -120,6 +121,8 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
     };
     try {
       const saved = id ? await updateRecipe(id, payload) : await createRecipe(payload);
+      // New recipes without a photo get an AI photo in the background; failure must never block saving.
+      if (!id && !saved.image_url) await requestImage(saved.id).catch(() => undefined);
       go(`/r/${saved.id}`);
     } catch (err) {
       fail(err);

@@ -11,7 +11,7 @@ Persoonlijke receptenapp (één gebruiker, één wachtwoord). Vite + React + Typ
 - Importeren uit een Fond-export (`#/import`, onderaan de receptenlijst)
 
 ## Opzetten
-1. **Supabase**: maak een project en draai `supabase/migrations/001_recipes.sql` in de SQL-editor.
+1. **Supabase**: maak een project en draai `supabase/migrations/001_recipes.sql` én `002_recipe_images.sql` in de SQL-editor.
 2. **Netlify**: koppel deze repo. Build: `npm run build`, publish: `dist` (staat al in `netlify.toml`).
 3. Zet in Netlify → Site settings → Environment variables:
    - `APP_PASSWORD` – je wachtwoord
@@ -19,6 +19,7 @@ Persoonlijke receptenapp (één gebruiker, één wachtwoord). Vite + React + Typ
    - `SUPABASE_URL` – project-URL
    - `SUPABASE_SERVICE_KEY` – de *service role* key (nooit in de frontend of in git)
    - `ANTHROPIC_API_KEY` – voor de AI-import (alleen op de server)
+   - `OPENAI_API_KEY` – voor AI-foto's (alleen op de server)
    - `ANTHROPIC_MODEL` – optioneel, standaard `claude-opus-5-5`; een sneller/goedkoper model kan hier worden gezet
 
 De database is niet publiek bereikbaar (RLS aan, geen policies); alleen de Netlify-functie in `netlify/functions/api.ts` gebruikt de service key.
@@ -45,6 +46,12 @@ Een link wordt in drie stappen verwerkt: (1) staat er een gestructureerd recept 
 - **Foto's, geplakte tekst** en links die de AI zelf leest, komen direct in het Nederlands uit de AI.
 - Bij de **Fond-import** staat een vinkje ‘Engelstalige recepten vertalen’ (standaard aan). Onderaan de receptenlijst staat ‘Engelse recepten vertalen’ voor recepten die er al in staan.
 - Vertalen gebruikt standaard `claude-haiku-5-5` (snel en goedkoop); overschrijfbaar met `ANTHROPIC_TRANSLATE_MODEL`. Alleen titel, omschrijving, ingrediënten en stappen worden vertaald; hoeveelheden, link en tijd blijven ongewijzigd. Mislukt vertalen? Dan blijft het origineel staan.
+
+## AI-foto's
+- Nieuwe recepten zonder foto krijgen na het opslaan automatisch een AI-foto (OpenAI `gpt-image-1`, lage kwaliteit, vierkant). Heeft een link-import al een foto van de site, dan blijft die.
+- Onderaan de receptenlijst: ‘Foto's genereren’ voor alle recepten zonder foto (één voor één, met bevestiging vooraf; scherm open laten). Op een receptpagina: ‘AI-foto maken’ / ‘Nieuwe AI-foto’.
+- De foto wordt gemaakt door een Netlify *background function* (`generate-image-background`, mag minuten duren), opgeslagen in de Supabase-bucket `recipe-images` en als `image_url` bij het recept gezet. De app ververst zelf tot de foto er is.
+- Model aanpasbaar met `OPENAI_IMAGE_MODEL`. Kosten: een paar cent per foto; controleer de actuele prijs bij OpenAI.
 
 ## Roadmap
 - Later, indien gewenst: boodschappenlijst, weekplanner

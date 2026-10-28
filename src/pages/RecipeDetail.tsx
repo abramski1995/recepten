@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { deleteRecipe, getRecipe } from "../lib/api.ts";
+import { requestImage } from "../lib/images.ts";
+import { useImagePolling } from "../lib/useImagePolling.ts";
 import { scaleIngredient } from "../lib/scale.ts";
 import { useLoad } from "../lib/useLoad.ts";
 import { go } from "../lib/useRoute.ts";
 
 export function RecipeDetail({ id, onUnauthorized }: { id: string; onUnauthorized: () => void }) {
-  const { data: recipe, error } = useLoad(() => getRecipe(id), onUnauthorized, [id]);
+  const [reload, setReload] = useState(0);
+  const { data: recipe, error } = useLoad(() => getRecipe(id), onUnauthorized, [id, reload], true);
   const [servings, setServings] = useState<number | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  useImagePolling(recipe ? [recipe] : null, () => setReload((n) => n + 1));
 
   if (error) return <p className="p-4 text-red-700">{error}</p>;
   if (!recipe) return <p className="p-4 text-stone-500">Laden…</p>;
@@ -14,6 +19,18 @@ export function RecipeDetail({ id, onUnauthorized }: { id: string; onUnauthorize
   const base = recipe.servings;
   const current = servings ?? base;
   const factor = base && current ? current / base : 1;
+
+  async function newImage() {
+    setImageBusy(true);
+    try {
+      await requestImage(id, true, recipe?.image_url ?? null);
+      setReload((n) => n + 1); // starts polling; the new photo replaces the old one when ready
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Foto genereren mislukt");
+    } finally {
+      setImageBusy(false);
+    }
+  }
 
   async function remove() {
     if (!confirm("Dit recept verwijderen?")) return;
@@ -108,6 +125,9 @@ export function RecipeDetail({ id, onUnauthorized }: { id: string; onUnauthorize
           ) : (
             <span />
           )}
+          <button className="disabled:opacity-50" disabled={imageBusy} onClick={newImage}>
+            {recipe.image_url ? "Nieuwe AI-foto" : "AI-foto maken"}
+          </button>
           <button className="text-red-700" onClick={remove}>
             Verwijderen
           </button>

@@ -2,13 +2,18 @@ import { useEffect, useState } from "react";
 import { UnauthorizedError } from "./api.ts";
 
 // Loads data once per dependency change; reports 401s so the app can show the login again.
-export function useLoad<T>(load: () => Promise<T>, onUnauthorized: () => void, deps: unknown[]) {
+export function useLoad<T>(
+  load: () => Promise<T>,
+  onUnauthorized: () => void,
+  deps: unknown[],
+  keepData = false, // true: keep showing the old data while reloading (used when polling)
+) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setData(null);
+    if (!keepData) setData(null);
     setError(null);
     load()
       .then((d) => !cancelled && setData(d))
