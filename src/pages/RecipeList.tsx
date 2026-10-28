@@ -77,14 +77,14 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
     if (missing.length === 0) return alert("Alle recepten hebben al een foto.");
     if (
       !confirm(
-        `Foto's genereren voor ${missing.length} recepten? Dit kost per foto een paar cent (OpenAI) en duurt ongeveer ${Math.ceil(missing.length / 4)} minuten. Laat dit scherm open staan.`,
+        `Foto's zoeken voor ${missing.length} recepten? Eerst wordt de foto van de bronpagina gebruikt; lukt dat niet, dan maakt de AI er een (kost een paar cent per foto). Dat duurt tot ongeveer ${Math.ceil(missing.length / 4)} minuten. Laat dit scherm open staan.`,
       )
     )
       return;
     let failed = 0;
     try {
       for (const [i, r] of missing.entries()) {
-        setTagging(`Foto's genereren… ${i + 1} van ${missing.length}`);
+        setTagging(`Foto's zoeken… ${i + 1} van ${missing.length}`);
         try {
           await requestImage(r.id);
           if (!(await waitForImage(r.id, null))) failed++;
@@ -180,7 +180,7 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
           </button>
           {" · "}
           <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={generateMissingImages}>
-            Foto's genereren
+            Foto's zoeken
           </button>
         </p>
       )}

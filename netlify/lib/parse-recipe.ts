@@ -140,7 +140,7 @@ export function parseRecipeFromHtml(html: string, sourceUrl: string): RecipeDraf
 
 const MAX_PAGE_TEXT = 15_000;
 
-function metaContent(html: string, names: string[]): string[] {
+export function metaContent(html: string, names: string[]): string[] {
   const out: string[] = [];
   for (const tag of html.match(/<meta\s[^>]*>/gi) ?? []) {
     const key = /(?:property|name)=["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase();

@@ -126,7 +126,7 @@ export function RecipeDetail({ id, onUnauthorized }: { id: string; onUnauthorize
             <span />
           )}
           <button className="disabled:opacity-50" disabled={imageBusy} onClick={newImage}>
-            {recipe.image_url ? "Nieuwe AI-foto" : "AI-foto maken"}
+            {recipe.image_url ? "Nieuwe AI-foto" : "Foto zoeken"}
           </button>
           <button className="text-red-700" onClick={remove}>
             Verwijderen
