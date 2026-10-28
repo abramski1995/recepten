@@ -8,6 +8,7 @@ Persoonlijke receptenapp (één gebruiker, één wachtwoord). Vite + React + Typ
 - Porties omrekenen
 - Kookmodus (stap voor stap, scherm blijft aan)
 - Installeerbaar als app (PWA), mobile-first
+- Importeren uit een Fond-export (`#/import`, onderaan de receptenlijst)
 
 ## Opzetten
 1. **Supabase**: maak een project en draai `supabase/migrations/001_recipes.sql` in de SQL-editor.

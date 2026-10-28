@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 
-// Minimal hash router: "#/", "#/new", "#/r/:id", "#/edit/:id", "#/cook/:id".
+// Minimal hash router: "#/", "#/new", "#/import", "#/r/:id", "#/edit/:id", "#/cook/:id".
 export type Route =
   | { name: "list" }
   | { name: "new" }
+  | { name: "import" }
   | { name: "detail"; id: string }
   | { name: "edit"; id: string }
   | { name: "cook"; id: string };
@@ -11,6 +12,7 @@ export type Route =
 export function parseHash(hash: string): Route {
   const [, a, b] = hash.replace(/^#/, "").split("/");
   if (a === "new") return { name: "new" };
+  if (a === "import") return { name: "import" };
   if (a === "r" && b) return { name: "detail", id: b };
   if (a === "edit" && b) return { name: "edit", id: b };
   if (a === "cook" && b) return { name: "cook", id: b };

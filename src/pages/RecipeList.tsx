@@ -69,6 +69,12 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
           </li>
         ))}
       </ul>
+
+      <p className="mt-8 text-center text-sm text-stone-500">
+        <a href="#/import" className="underline">
+          Importeren uit Fond
+        </a>
+      </p>
     </main>
   );
 }
