@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  PasteHintError,
   UnauthorizedError,
   createRecipe,
   getRecipe,
@@ -26,6 +27,7 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
   const [tags, setTags] = useState("");
   const [importUrl, setImportUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +46,10 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
 
   function fail(e: unknown) {
     if (e instanceof UnauthorizedError) onUnauthorized();
+    else if (e instanceof PasteHintError) {
+      setAiOpen(true); // point the user to the paste-text box
+      setError(e.message);
+    }
     else setError(e instanceof Error ? e.message : "Er ging iets mis");
   }
 
@@ -130,7 +136,7 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
               Ophalen
             </button>
           </div>
-          <details className="mt-4">
+          <details className="mt-4" open={aiOpen} onToggle={(e) => setAiOpen(e.currentTarget.open)}>
             <summary className="cursor-pointer text-sm font-medium">Of: foto, screenshot of tekst (AI)</summary>
             <label className="btn-ghost mt-3 w-full cursor-pointer">
               📷 Kies foto of screenshot

@@ -137,3 +137,28 @@ export function parseRecipeFromHtml(html: string, sourceUrl: string): RecipeDraf
     tags: toTags(node),
   };
 }
+
+const MAX_PAGE_TEXT = 15_000;
+
+function metaContent(html: string, names: string[]): string[] {
+  const out: string[] = [];
+  for (const tag of html.match(/<meta\s[^>]*>/gi) ?? []) {
+    const key = /(?:property|name)=["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase();
+    const content = /content=(?:"([^"]*)"|'([^']*)')/i.exec(tag);
+    const value = content?.[1] ?? content?.[2];
+    if (key && value && names.includes(key)) out.push(decodeEntities(value));
+  }
+  return out;
+}
+
+// Plain text of a page that has no structured recipe data: titles/descriptions first
+// (social media captions live in og:description), then the visible body text.
+export function extractPageText(html: string): string {
+  const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
+  const meta = metaContent(html, ["og:title", "og:description", "description", "twitter:description"]);
+  const body = html
+    .replace(/<(script|style|noscript|svg|head)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  const parts = [title ? decodeEntities(title) : "", ...meta, decodeEntities(body)].filter(Boolean);
+  return [...new Set(parts)].join("\n\n").slice(0, MAX_PAGE_TEXT);
+}

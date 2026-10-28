@@ -37,5 +37,8 @@ Foto's worden in de browser verkleind (max 1600 px) en naar `/api/import-ai` ges
 
 **Let op:** Netlify-functies hebben standaard een time-out van 10 seconden. Als AI-import soms afbreekt, verhoog de time-out (Netlify-instellingen) of zet `ANTHROPIC_MODEL` op een sneller model.
 
+## Link-import en AI
+Een link wordt in drie stappen verwerkt: (1) staat er een gestructureerd recept op de pagina (de meeste receptensites), dan wordt dat direct gebruikt; (2) anders leest de AI de paginatekst (bijv. een videobeschrijving); (3) lukt dat niet, dan haalt Claude de link zelf op (web fetch). Sites als Instagram vragen vaak inloggen en kunnen dus geblokkeerd blijven; kopieer dan de beschrijving en plak die bij ‘tekst’ (het formulier opent dat vakje dan automatisch).
+
 ## Roadmap
 - Later, indien gewenst: boodschappenlijst, weekplanner

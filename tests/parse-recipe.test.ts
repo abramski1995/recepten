@@ -53,3 +53,20 @@ describe("parseRecipeFromHtml", () => {
     expect(parseDurationMinutes("nonsense")).toBeNull();
   });
 });
+
+import { extractPageText } from "../netlify/lib/parse-recipe.ts";
+
+describe("extractPageText", () => {
+  it("returns meta captions first, then body text, without scripts", () => {
+    const html = `<html><head><title>Reel</title>
+      <meta property="og:description" content="Recept: 200 g pasta &amp; saus"/>
+      <meta content="Reel van chef" name="description"><script>var x=1</script></head>
+      <body><p>Zichtbare tekst</p><style>.a{}</style></body></html>`;
+    const text = extractPageText(html);
+    expect(text).toContain("Recept: 200 g pasta & saus");
+    expect(text).toContain("Reel van chef");
+    expect(text).toContain("Zichtbare tekst");
+    expect(text).not.toContain("var x");
+    expect(text.indexOf("Recept:")).toBeLessThan(text.indexOf("Zichtbare"));
+  });
+});

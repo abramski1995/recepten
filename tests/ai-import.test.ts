@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MAX_TEXT_CHARS, NoRecipeError, extractRecipeWithAi } from "../netlify/lib/ai-import.ts";
+import { MAX_TEXT_CHARS, NoRecipeError, extractRecipeFromUrlWithAi, extractRecipeWithAi } from "../netlify/lib/ai-import.ts";
 import { ValidationError } from "../netlify/lib/validate.ts";
 
 function fakeClient(text: string, stop_reason = "end_turn") {
@@ -56,5 +56,27 @@ describe("extractRecipeWithAi", () => {
       ValidationError,
     );
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe("extractRecipeFromUrlWithAi", () => {
+  const url = "https://www.instagram.com/reel/abc/";
+
+  it("continues paused turns and parses JSON wrapped in prose", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce({ stop_reason: "pause_turn", content: [{ type: "server_tool_use", id: "x" }] })
+      .mockResolvedValueOnce({ stop_reason: "end_turn", content: [{ type: "text", text: `Hier:\n\`\`\`json\n${reply}\n\`\`\`` }] });
+    const draft = await extractRecipeFromUrlWithAi(url, { messages: { create } } as never);
+    expect(draft).toMatchObject({ title: "Pannenkoeken", source_url: url });
+    expect(create).toHaveBeenCalledTimes(2);
+    const first = create.mock.calls[0][0];
+    expect(first.tools[0]).toMatchObject({ type: "web_fetch_20260209", name: "web_fetch" });
+    expect(create.mock.calls[1][0].messages.at(-1).role).toBe("assistant");
+  });
+
+  it("reports a page without recipe", async () => {
+    const { client } = fakeClient("Ik kon geen recept vinden.");
+    await expect(extractRecipeFromUrlWithAi(url, client)).rejects.toThrow(NoRecipeError);
   });
 });

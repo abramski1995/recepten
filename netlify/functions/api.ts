@@ -2,8 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Config } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import { checkPassword, createToken, verifyToken } from "../lib/auth.ts";
-import { DEFAULT_MODEL, NoRecipeError, extractRecipeWithAi, type AiInput } from "../lib/ai-import.ts";
-import { parseRecipeFromHtml } from "../lib/parse-recipe.ts";
+import {
+  DEFAULT_MODEL,
+  NoRecipeError,
+  extractRecipeFromUrlWithAi,
+  extractRecipeWithAi,
+  type AiInput,
+} from "../lib/ai-import.ts";
+import { extractPageText, parseRecipeFromHtml } from "../lib/parse-recipe.ts";
 import { fetchHtml } from "../lib/safe-fetch.ts";
 import { ValidationError, validateRecipe } from "../lib/validate.ts";
 
@@ -45,9 +51,39 @@ export default async (req: Request): Promise<Response> => {
     if (resource === "import" && req.method === "POST") {
       const body = (await readJson(req)) as { url?: unknown };
       if (typeof body.url !== "string") throw new ValidationError("url is required");
-      const html = await fetchHtml(body.url);
-      const draft = parseRecipeFromHtml(html, body.url);
-      return draft ? json(draft) : json({ error: "No recipe found on that page" }, 422);
+      const PASTE_HINT =
+        "Geen recept gevonden op deze pagina. Kopieer de omschrijving (bijv. van het Instagram-filmpje) en plak die bij ‘tekst’.";
+      let html: string | null = null;
+      try {
+        html = await fetchHtml(body.url);
+      } catch (err) {
+        console.error("direct fetch failed", err); // blocked pages still get the AI fallback below
+      }
+      const draft = html ? parseRecipeFromHtml(html, body.url) : null;
+      if (draft) return json(draft);
+
+      // No structured recipe data (e.g. a video caption): let the AI read the page instead.
+      const apiKey = Netlify.env.get("ANTHROPIC_API_KEY");
+      if (apiKey) {
+        const client = new Anthropic({ apiKey });
+        const model = Netlify.env.get("ANTHROPIC_MODEL") || DEFAULT_MODEL;
+        const text = html ? extractPageText(html) : "";
+        try {
+          if (text.length >= 80) {
+            try {
+              return json({ ...(await extractRecipeWithAi({ text }, client, model)), source_url: body.url });
+            } catch (err) {
+              if (!(err instanceof NoRecipeError)) throw err;
+            }
+          }
+          // Last resort: Claude fetches the link itself.
+          return json(await extractRecipeFromUrlWithAi(body.url, client, model));
+        } catch (err) {
+          if (!(err instanceof NoRecipeError) && !(err instanceof Anthropic.APIError)) throw err;
+          console.error("AI link import failed", err);
+        }
+      }
+      return json({ error: PASTE_HINT, paste: true }, 422);
     }
 
     if (resource === "import-ai" && req.method === "POST") {

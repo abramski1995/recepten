@@ -6,6 +6,8 @@ export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 
 export class UnauthorizedError extends Error {}
+// The server could not read the link but the user can paste the text instead.
+export class PasteHintError extends Error {}
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
@@ -21,7 +23,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     clearToken();
     throw new UnauthorizedError("Sessie verlopen");
   }
-  if (!res.ok) throw new Error((body as { error?: string }).error ?? `Fout ${res.status}`);
+  if (!res.ok) {
+    const { error, paste } = body as { error?: string; paste?: boolean };
+    throw new (paste ? PasteHintError : Error)(error ?? `Fout ${res.status}`);
+  }
   return body as T;
 }
 
