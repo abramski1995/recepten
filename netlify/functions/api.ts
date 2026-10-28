@@ -1,6 +1,8 @@
+import Anthropic from "@anthropic-ai/sdk";
 import type { Config } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import { checkPassword, createToken, verifyToken } from "../lib/auth.ts";
+import { DEFAULT_MODEL, NoRecipeError, extractRecipeWithAi, type AiInput } from "../lib/ai-import.ts";
 import { parseRecipeFromHtml } from "../lib/parse-recipe.ts";
 import { fetchHtml } from "../lib/safe-fetch.ts";
 import { ValidationError, validateRecipe } from "../lib/validate.ts";
@@ -46,6 +48,25 @@ export default async (req: Request): Promise<Response> => {
       const html = await fetchHtml(body.url);
       const draft = parseRecipeFromHtml(html, body.url);
       return draft ? json(draft) : json({ error: "No recipe found on that page" }, 422);
+    }
+
+    if (resource === "import-ai" && req.method === "POST") {
+      const body = (await readJson(req)) as { text?: unknown; image?: { media_type?: unknown; data?: unknown } };
+      const input: AiInput =
+        typeof body.text === "string"
+          ? { text: body.text }
+          : typeof body.image?.data === "string" && typeof body.image.media_type === "string"
+            ? { image: { media_type: body.image.media_type, data: body.image.data } }
+            : (() => {
+                throw new ValidationError("text of image is verplicht");
+              })();
+      try {
+        const client = new Anthropic({ apiKey: env("ANTHROPIC_API_KEY") });
+        return json(await extractRecipeWithAi(input, client, Netlify.env.get("ANTHROPIC_MODEL") || DEFAULT_MODEL));
+      } catch (err) {
+        if (err instanceof NoRecipeError) return json({ error: err.message }, 422);
+        throw err;
+      }
     }
 
     if (resource !== "recipes") return json({ error: "Not found" }, 404);

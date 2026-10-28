@@ -1,5 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { UnauthorizedError, createRecipe, getRecipe, importFromUrl, updateRecipe } from "../lib/api.ts";
+import {
+  UnauthorizedError,
+  createRecipe,
+  getRecipe,
+  importFromImage,
+  importFromText,
+  importFromUrl,
+  updateRecipe,
+} from "../lib/api.ts";
+import { imageToBase64Jpeg } from "../lib/image.ts";
 import { go } from "../lib/useRoute.ts";
 import { emptyRecipe, type RecipeInput } from "../types.ts";
 
@@ -15,6 +24,7 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
   const [steps, setSteps] = useState("");
   const [tags, setTags] = useState("");
   const [importUrl, setImportUrl] = useState("");
+  const [pastedText, setPastedText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +57,26 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
       setBusy(false);
     }
   }
+
+  async function runAi(task: () => Promise<RecipeInput>) {
+    setBusy(true);
+    setError(null);
+    try {
+      fill({ ...emptyRecipe, ...(await task()) });
+      setPastedText("");
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const importText = () => runAi(() => importFromText(pastedText));
+  const importPhoto = (file: File) =>
+    runAi(async () => {
+      const { media_type, data } = await imageToBase64Jpeg(file);
+      return importFromImage(media_type, data);
+    });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -93,6 +123,32 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
               Ophalen
             </button>
           </div>
+          <details className="mt-4">
+            <summary className="cursor-pointer text-sm font-medium">Of: foto, screenshot of tekst (AI)</summary>
+            <label className="btn-ghost mt-3 w-full cursor-pointer">
+              📷 Kies foto of screenshot
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={busy}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void importPhoto(file);
+                }}
+              />
+            </label>
+            <textarea
+              className="input mt-3 min-h-28"
+              placeholder="Of plak hier de receptentekst…"
+              value={pastedText}
+              onChange={(e) => setPastedText(e.target.value)}
+            />
+            <button type="button" className="btn-primary mt-2 w-full" disabled={busy || !pastedText.trim()} onClick={importText}>
+              {busy ? "Bezig…" : "Tekst omzetten"}
+            </button>
+          </details>
         </section>
       )}
 
