@@ -6,6 +6,7 @@ const TILES: Record<string, [string, string]> = {
   soep: ["#E8DDB0", "#C98A2B"],
   salade: ["#C9D2AE", "#6F7F3F"],
   lunch: ["#D9C7A6", "#8A5A33"],
+  gebak: ["#EBD3A8", "#B07A3A"],
   dessert: ["#EBC3B8", "#C0392B"],
 };
 const FALLBACK: [string, string] = ["#E9DCC8", "#B4492A"];

@@ -20,7 +20,8 @@ const OTHER_MEAT = rx(["gehakt", "\\blam\\b", "mince"]);
 const FISH = rx(["tonijn", "\\btuna", "zalm", "salmon", "sardine", "mossel", "garnaal", "gamba", "kabeljauw", "makreel", "\\bvis\\b", "schelvis", "tong\\b", "inktvis", "calamari", "pasta al sugo di mare"]);
 const SOUP = rx(["soep\\b", "soup\\b", "\\bsnert"]);
 const SALAD = rx(["salade", "\\bsalad"]);
-const DESSERT = rx(["\\bcake\\b", "\\btaart", "\\btorta", "cheesecake", "dessert", "toetje", "sgroppino", "koekje", "brownie", "pudding", "mousse", "tiramisu", "\\bijs\\b", "pannenkoek", "brood\\b.*banaan"]);
+const GEBAK = rx(["\\bcake\\b", "cheesecake", "cupcake", "\\btaart", "\\btorta", "gebak", "koekje", "koekjes", "cookie", "brownie", "muffin", "scone", "croissant", "wafel", "brood\\b", "\\bbread\\b", "cinnamon roll", "kaneelbroodje"]);
+const DESSERT = rx(["dessert", "toetje", "sgroppino", "pudding", "mousse", "tiramisu", "\\bijs\\b", "pannenkoek"]);
 const LUNCH = rx(["sandwich", "\\bwrap", "panino", "broodje", "\\bpita", "nachos", "\\btosti", "\\btoast"]);
 
 export function autoTags(r: TagSource): string[] {
@@ -29,10 +30,11 @@ export function autoTags(r: TagSource): string[] {
 
   const soup = SOUP.test(r.title);
   const salad = SALAD.test(r.title);
-  const dessert = DESSERT.test(r.title);
-  const lunch = !soup && !salad && !dessert && LUNCH.test(head);
+  const gebak = !soup && !salad && GEBAK.test(r.title);
+  const dessert = !gebak && DESSERT.test(r.title);
+  const lunch = !soup && !salad && !gebak && !dessert && LUNCH.test(head);
 
-  tags.push(soup ? "soep" : salad ? "salade" : dessert ? "dessert" : lunch ? "lunch" : "hoofdgerecht");
+  tags.push(soup ? "soep" : salad ? "salade" : gebak ? "gebak" : dessert ? "dessert" : lunch ? "lunch" : "hoofdgerecht");
 
   // Stock ("kippenbouillon") flavours a dish but doesn't make it a meat dish.
   const proteinText = head.split("\n").filter((l) => !/bouillon|stock|\bfond\b/i.test(l)).join("\n");
@@ -49,7 +51,7 @@ export function autoTags(r: TagSource): string[] {
   if (beef) tags.push("rund");
   if (pork) tags.push("varken");
   if (fish) tags.push("vis");
-  if (!meat && !fish && !dessert) tags.push("vegetarisch");
+  if (!meat && !fish && !dessert && !gebak) tags.push("vegetarisch");
 
   return tags;
 }

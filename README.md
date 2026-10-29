@@ -57,7 +57,7 @@ Een foto wordt in deze volgorde gezocht: (1) de foto van de **bronpagina** (de l
 - AI-model aanpasbaar met `OPENAI_IMAGE_MODEL`. Kosten: een paar cent per AI-foto; controleer de actuele prijs bij OpenAI.
 
 ## Categorieën en filters
-- **Gerecht** (precies één per recept): hoofdgerecht, soep, salade, lunch, dessert. Dit zijn de tabs bovenaan de lijst.
+- **Gerecht** (precies één per recept): hoofdgerecht, soep, salade, lunch, gebak, dessert. Dit zijn de tabs bovenaan de lijst.
 - **Hoofdingrediënt**: vlees (met kip, rund, varken), vis, vegetarisch, pasta, rijst. Meerdere tegelijk kan; ze moeten dan allemaal kloppen.
 - **Tijd** wordt automatisch uit de totale tijd afgeleid (snel ≤ 30 min, rustig aan, langzaam ≥ 2 uur) en is dus geen tag.
 - **Eigen labels** (vrije tekst) blijven bestaan maar staan verborgen in het filterpaneel onder ‘Toon mijn labels’.

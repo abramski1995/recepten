@@ -10,7 +10,12 @@ describe("autoTags", () => {
     expect(t("Hollandse Erwtensoep (Snert)", ["worst"])[0]).toBe("soep");
     expect(t("Tomatensoep", ["tomaten"])).toEqual(["soep", "vegetarisch"]);
     expect(t("Tuna and Bean Salad", ["tuna"])[0]).toBe("salade");
-    expect(t("Torta di Mele (Apple Cake)", ["appels"])).toEqual(["dessert"]);
+    expect(t("Torta di Mele (Apple Cake)", ["appels"])).toEqual(["gebak"]);
+    expect(t("Protein Packed Blueberry Cheesecake", ["kwark"])).toEqual(["gebak"]);
+    expect(t("Brownies", ["chocolade"])).toEqual(["gebak"]);
+    expect(t("Bananenbrood", ["banaan"])).toEqual(["gebak"]);
+    expect(t("Sgroppino met citroen", ["citroenijs"])).toEqual(["dessert"]);
+    expect(t("Tiramisu", ["mascarpone"])).toEqual(["dessert"]);
     expect(t("Panino alla Caprese", ["ciabatta", "burrata"])).toEqual(["lunch", "vegetarisch"]);
   });
 
@@ -37,6 +42,11 @@ describe("autoTags", () => {
     expect(mussels).not.toContain("vlees");
     expect(t("Speculaaskoekjes", ["speculaaskruiden"])).not.toContain("vlees");
     expect(t("Biefstuk", ["2 steaks"])).toEqual(expect.arrayContaining(["vlees", "rund"]));
+  });
+
+  it("keeps sandwiches as lunch, not gebak", () => {
+    expect(t("Italian Steak Sandwich", ["ciabatta", "biefstuk"])[0]).toBe("lunch");
+    expect(t("Pitabroodjes met kip", ["pitabroodjes", "kip"])[0]).toBe("lunch");
   });
 
   it("no longer produces time or method tags", () => {

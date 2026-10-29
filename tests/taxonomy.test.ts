@@ -23,6 +23,11 @@ describe("cleanTags", () => {
     expect(cleanTags(["soep", "dessert"], ["lunch"])).toEqual(["lunch"]);
     expect(cleanTags([], ["salade", "vegetarisch"])).toEqual(["salade", "vegetarisch"]);
   });
+  it("moves cakes filed under dessert to gebak, but leaves other dessert alone", () => {
+    expect(cleanTags(["dessert"], ["gebak"])).toEqual(["gebak"]);
+    expect(cleanTags(["dessert"], ["dessert"])).toEqual(["dessert"]);
+    expect(cleanTags(["lunch"], ["gebak"])).toEqual(["lunch"]);
+  });
   it("is stable: cleaning twice changes nothing", () => {
     const once = cleanTags(["Oven", "kip", "mijn-label"], ["hoofdgerecht", "vlees", "kip"]);
     expect(sameTags(cleanTags(once, ["hoofdgerecht", "vlees", "kip"]), once)).toBe(true);

@@ -7,6 +7,7 @@ export const GERECHTEN = [
   { id: "soep", label: "Soep" },
   { id: "salade", label: "Salade" },
   { id: "lunch", label: "Lunch" },
+  { id: "gebak", label: "Gebak" },
   { id: "dessert", label: "Dessert" },
 ] as const;
 
@@ -64,7 +65,10 @@ export const customOnly = (tags: string[]) => tags.filter((t) => !isControlled(t
 export function cleanTags(existing: string[], suggested: string[]): string[] {
   const kept = existing.map((t) => t.trim().toLowerCase()).filter((t) => t && !OBSOLETE.has(t));
   const have = kept.filter(isGerecht);
-  const gerecht = have.length === 1 ? have : suggested.filter(isGerecht).slice(0, 1);
+  // An existing dish type wins, except that cakes and pastries filed under "dessert" before
+  // "gebak" existed move to it.
+  const movesToGebak = have.length === 1 && have[0] === "dessert" && suggested.includes("gebak");
+  const gerecht = have.length === 1 && !movesToGebak ? have : suggested.filter(isGerecht).slice(0, 1);
   const rest = [...kept, ...suggested].filter((t) => !isGerecht(t));
   if (rest.some(isMeatKind)) rest.push("vlees");
   return [...new Set([...gerecht, ...rest])];
