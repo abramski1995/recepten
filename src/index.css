@@ -25,9 +25,12 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-h1,
-h2 {
-  font-family: var(--font-display);
+/* In the base layer, so utility classes such as font-sans can still override the heading font. */
+@layer base {
+  h1,
+  h2 {
+    font-family: var(--font-display);
+  }
 }
 
 @utility btn {

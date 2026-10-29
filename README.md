@@ -5,8 +5,8 @@ Persoonlijke receptenapp (één gebruiker, één wachtwoord). Vite + React + Typ
 ## Functies (v0.1)
 - Recepten importeren via link (schema.org/Recipe), uit een foto/screenshot of uit geplakte tekst (AI), of handmatig invoeren
 - Vaste categorieën (gerecht, hoofdingrediënt, tijd) met tabs en een filterpaneel; zoeken op titel/ingrediënt
-- Porties omrekenen
-- Kookmodus (stap voor stap, scherm blijft aan)
+- Receptpagina met tabs (ingrediënten afvinken, porties omrekenen, bereiding), favoriet, ‘Start met koken’ en verwijderen met ‘Ongedaan maken’
+- Kookmodus: één stap per scherm (veeg of pijltjestoetsen), ingrediënten per stap, tijden in de tekst worden tikbare timers (meerdere tegelijk, met trilling en piep), scherm blijft aan
 - Installeerbaar als app (PWA), mobile-first, met onderbalk (Recepten, Favorieten, + Nieuw, Meer)
 - Favorieten (hartje op elke kaart) en een ‘Meer’-pagina met onderhoud (Fond-import, categorieën opschonen, vertalen, uitloggen)
 - Importeren uit een Fond-export (`#/import`, onderaan de receptenlijst)
