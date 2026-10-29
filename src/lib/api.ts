@@ -44,6 +44,8 @@ export const createRecipe = (r: RecipeInput) =>
   request<Recipe>("recipes", { method: "POST", body: JSON.stringify(r) });
 export const updateRecipe = (id: string, r: RecipeInput) =>
   request<Recipe>(`recipes/${id}`, { method: "PUT", body: JSON.stringify(r) });
+export const setFavorite = (id: string, favorite: boolean) =>
+  request<Recipe>(`recipes/${id}`, { method: "PATCH", body: JSON.stringify({ favorite }) });
 export const deleteRecipe = (id: string) => request<{ ok: true }>(`recipes/${id}`, { method: "DELETE" });
 export const translateRecipe = (recipe: RecipeInput) =>
   request<RecipeInput>("translate", { method: "POST", body: JSON.stringify({ recipe }) });

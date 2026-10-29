@@ -152,6 +152,14 @@ export default async (req: Request): Promise<Response> => {
       return data ? json(data) : json({ error: "Not found" }, 404);
     }
 
+    if (id && req.method === "PATCH") {
+      const body = (await readJson(req)) as { favorite?: unknown };
+      if (typeof body.favorite !== "boolean") throw new ValidationError("favorite must be true or false");
+      const { data, error } = await db.from("recipes").update({ favorite: body.favorite }).eq("id", id).select().maybeSingle();
+      if (error) throw error;
+      return data ? json(data) : json({ error: "Not found" }, 404);
+    }
+
     if (id && req.method === "DELETE") {
       const { error } = await db.from("recipes").delete().eq("id", id);
       if (error) throw error;

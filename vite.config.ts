@@ -16,8 +16,8 @@ export default defineConfig({
         lang: "nl",
         start_url: "/",
         display: "standalone",
-        background_color: "#fffaf3",
-        theme_color: "#c2410c",
+        background_color: "#fbf6ee",
+        theme_color: "#b4492a",
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },
@@ -27,6 +27,14 @@ export default defineConfig({
       workbox: {
         // Never cache API responses; recipes must always be fresh.
         navigateFallbackDenylist: [/^\/api\//],
+        // Keep the web fonts available offline after the first visit.
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\//,
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "fonts", expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+          },
+        ],
       },
     }),
   ],

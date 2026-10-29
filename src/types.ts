@@ -13,6 +13,7 @@ export interface RecipeInput {
 
 export interface Recipe extends RecipeInput {
   id: string;
+  favorite?: boolean; // absent until migration 003 has run
   created_at: string;
   updated_at: string;
 }

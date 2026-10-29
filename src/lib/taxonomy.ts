@@ -40,6 +40,8 @@ const CONTROLLED = new Set([...GERECHT_IDS, ...ids(INGREDIENTEN), ...MEAT_KIND_I
 // Tags from earlier versions that are replaced by something derived or no longer used.
 const OBSOLETE = new Set(["oven", "slowcooker", "snel"]);
 
+export const gerechtOf = (tags: string[]): string | null => tags.find((t) => GERECHT_IDS.has(t)) ?? null;
+
 export const isGerecht = (tag: string) => GERECHT_IDS.has(tag);
 export const isMeatKind = (tag: string) => MEAT_KIND_IDS.has(tag);
 export const isControlled = (tag: string) => CONTROLLED.has(tag);

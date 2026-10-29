@@ -7,11 +7,12 @@ Persoonlijke receptenapp (één gebruiker, één wachtwoord). Vite + React + Typ
 - Vaste categorieën (gerecht, hoofdingrediënt, tijd) met tabs en een filterpaneel; zoeken op titel/ingrediënt
 - Porties omrekenen
 - Kookmodus (stap voor stap, scherm blijft aan)
-- Installeerbaar als app (PWA), mobile-first
+- Installeerbaar als app (PWA), mobile-first, met onderbalk (Recepten, Favorieten, + Nieuw, Meer)
+- Favorieten (hartje op elke kaart) en een ‘Meer’-pagina met onderhoud (Fond-import, categorieën opschonen, vertalen, uitloggen)
 - Importeren uit een Fond-export (`#/import`, onderaan de receptenlijst)
 
 ## Opzetten
-1. **Supabase**: maak een project en draai `supabase/migrations/001_recipes.sql` én `002_recipe_images.sql` in de SQL-editor.
+1. **Supabase**: maak een project en draai `supabase/migrations/001_recipes.sql`, `002_recipe_images.sql` én `003_favorites.sql` (voor het hartje bij favorieten) in de SQL-editor.
 2. **Netlify**: koppel deze repo. Build: `npm run build`, publish: `dist` (staat al in `netlify.toml`).
 3. Zet in Netlify → Site settings → Environment variables:
    - `APP_PASSWORD` – je wachtwoord

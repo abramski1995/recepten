@@ -1,16 +1,22 @@
 import { useCallback, useMemo, useState } from "react";
-import { UnauthorizedError, listRecipes, translateRecipe, updateRecipe } from "../lib/api.ts";
+import { BottomNav } from "../components/BottomNav.tsx";
 import { Chip } from "../components/Chip.tsx";
 import { FilterSheet } from "../components/FilterSheet.tsx";
-import { autoTags } from "../lib/autotag.ts";
+import { RecipeCard, RecipeCardSkeleton } from "../components/RecipeCard.tsx";
+import { UnauthorizedError, listRecipes, setFavorite } from "../lib/api.ts";
 import { activeCount, customLabels, filterRecipes, noFilters, type Filters } from "../lib/filter.ts";
-import { GERECHTEN, TIJDEN, cleanTags, isGerecht, labelOf, sameTags } from "../lib/taxonomy.ts";
-import { looksDutch } from "../lib/lang.ts";
+import { GERECHTEN, TIJDEN, isGerecht, labelOf } from "../lib/taxonomy.ts";
 import { useImagePolling } from "../lib/useImagePolling.ts";
-import { go } from "../lib/useRoute.ts";
 import { useLoad } from "../lib/useLoad.ts";
+import { useMaintenance } from "../lib/useMaintenance.ts";
+import type { Recipe } from "../types.ts";
 
-export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
+interface Props {
+  onUnauthorized: () => void;
+  favoritesOnly?: boolean;
+}
+
+export function RecipeList({ onUnauthorized, favoritesOnly = false }: Props) {
   const [reload, setReload] = useState(0);
   const { data, error } = useLoad(listRecipes, onUnauthorized, [reload], true);
   useImagePolling(data, () => setReload((n) => n + 1));
@@ -18,12 +24,35 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
   const [filters, setFilters] = useState<Filters>(noFilters);
   const [sheetOpen, setSheetOpen] = useState(false);
   const closeSheet = useCallback(() => setSheetOpen(false), []);
-  const [tagging, setTagging] = useState<string | null>(null);
+  const { label: tidyLabel, tidyTags } = useMaintenance(data, onUnauthorized, () => setReload((n) => n + 1));
 
-  const shown = useMemo(() => (data ? filterRecipes(data, query, filters) : []), [data, query, filters]);
+  // Optimistic favorites: show the new state at once, undo it when saving fails.
+  const [favOverride, setFavOverride] = useState<Record<string, boolean>>({});
+  const isFav = useCallback((r: Recipe) => favOverride[r.id] ?? r.favorite ?? false, [favOverride]);
+
+  async function toggleFavorite(r: Recipe) {
+    const next = !isFav(r);
+    setFavOverride((o) => ({ ...o, [r.id]: next }));
+    try {
+      await setFavorite(r.id, next);
+    } catch (e) {
+      setFavOverride((o) => ({ ...o, [r.id]: !next }));
+      if (e instanceof UnauthorizedError) return onUnauthorized();
+      const message = e instanceof Error ? e.message : "";
+      alert(
+        /favorite/i.test(message)
+          ? "Favorieten werken pas na het draaien van supabase/migrations/003_favorites.sql in Supabase."
+          : `Favoriet bewaren mislukt${message ? `: ${message}` : ""}`,
+      );
+    }
+  }
+
+  const pool = useMemo(() => (data ? (favoritesOnly ? data.filter(isFav) : data) : []), [data, favoritesOnly, isFav]);
+  const shown = useMemo(() => filterRecipes(pool, query, filters), [pool, query, filters]);
   const labels = useMemo(() => (data ? customLabels(data) : []), [data]);
   const withoutCategory = useMemo(() => (data ? data.filter((r) => !r.tags.some(isGerecht)).length : 0), [data]);
   const badge = activeCount(filters);
+  const filtering = badge > 0 || filters.gerecht !== null || query.trim() !== "";
 
   // Removable chips for every active filter except the dish-type tabs (those are visible anyway).
   const activeChips: { key: string; label: string; remove: () => void }[] = [
@@ -52,72 +81,11 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
     })),
   ];
 
-  // Gives every recipe one dish type and clean ingredient tags; own labels are kept.
-  async function tidyTags() {
-    if (!data) return;
-    const changes = data
-      .map((r) => ({ r, tags: cleanTags(r.tags, autoTags(r)) }))
-      .filter(({ r, tags }) => !sameTags(r.tags, tags));
-    if (changes.length === 0) return alert("Alle categorieën zijn al in orde.");
-    if (
-      !confirm(
-        `Categorieën instellen voor ${changes.length} recepten? Je eigen labels blijven staan; oude tags zoals oven, slowcooker en snel verdwijnen (de tijd wordt automatisch bepaald).`,
-      )
-    )
-      return;
-    try {
-      for (const [i, { r, tags }] of changes.entries()) {
-        setTagging(`Categorieën instellen… ${i + 1} van ${changes.length}`);
-        const { id: _id, created_at: _c, updated_at: _u, ...input } = r;
-        await updateRecipe(r.id, { ...input, tags });
-      }
-      setReload((n) => n + 1);
-    } catch (e) {
-      if (e instanceof UnauthorizedError) onUnauthorized();
-      else alert(e instanceof Error ? e.message : "Categorieën instellen mislukt");
-    } finally {
-      setTagging(null);
-    }
-  }
-
-  // Translates recipes that are not in Dutch yet (e.g. imported before translation existed).
-  async function translateAll() {
-    if (!data) return;
-    const foreign = data.filter((r) => !looksDutch(r));
-    if (foreign.length === 0) return alert("Alle recepten zijn al in het Nederlands.");
-    if (!confirm(`${foreign.length} Engelstalige recepten vertalen naar het Nederlands? Het origineel wordt vervangen.`)) return;
-    let failed = 0;
-    try {
-      for (const [i, r] of foreign.entries()) {
-        setTagging(`Vertalen… ${i + 1} van ${foreign.length}`);
-        const { id: _id, created_at: _c, updated_at: _u, ...input } = r;
-        try {
-          const nl = { ...input, ...(await translateRecipe(input)) };
-          await updateRecipe(r.id, { ...nl, tags: cleanTags(nl.tags, autoTags(nl)) });
-        } catch (e) {
-          if (e instanceof UnauthorizedError) throw e;
-          failed++;
-        }
-      }
-      if (failed) alert(`${failed} recepten konden niet vertaald worden.`);
-      setReload((n) => n + 1);
-    } catch (e) {
-      if (e instanceof UnauthorizedError) onUnauthorized();
-    } finally {
-      setTagging(null);
-    }
-  }
-
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
-      <header className="mb-4 flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-orange-800">GijsRecepten</h1>
-        <button className="btn-primary" onClick={() => go("/new")}>
-          + Nieuw
-        </button>
-      </header>
+    <main className="mx-auto max-w-3xl px-4 pb-32 pt-7">
+      <h1 className="text-3xl font-semibold tracking-tight text-stone-900">{favoritesOnly ? "Favorieten" : "GijsRecepten"}</h1>
 
-      <div className="mb-3 flex gap-2">
+      <div className="mb-3 mt-4 flex gap-2">
         <input
           className="input"
           type="search"
@@ -130,7 +98,7 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
           type="button"
           aria-label={badge > 0 ? `Filters, ${badge} actief` : "Filters"}
           onClick={() => setSheetOpen(true)}
-          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-stone-800 text-[#fffaf3]"
+          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-stone-800 text-[#fbf6ee]"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
@@ -156,7 +124,7 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
         ))}
       </div>
 
-      {data && data.length > 0 && (
+      {data && pool.length > 0 && (
         <div className="mb-3 flex min-h-9 items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
             {activeChips.map((c) => (
@@ -174,30 +142,53 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
               </button>
             ))}
           </div>
-          <span className="shrink-0 text-sm text-stone-500">
+          <span className="shrink-0 text-sm text-stone-600">
             {shown.length} {shown.length === 1 ? "recept" : "recepten"}
           </span>
         </div>
       )}
 
-      {withoutCategory > 0 && (
+      {withoutCategory > 0 && !favoritesOnly && (
         <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-orange-100 px-4 py-3 text-sm text-orange-900">
-          <span>{withoutCategory} recepten hebben nog geen categorie.</span>
-          <button type="button" className="btn-primary shrink-0" disabled={!!tagging} onClick={tidyTags}>
-            {tagging ?? "Instellen"}
+          <span>
+            {withoutCategory === 1 ? "1 recept heeft nog geen categorie." : `${withoutCategory} recepten hebben nog geen categorie.`}
+          </span>
+          <button type="button" className="btn-primary shrink-0" disabled={!!tidyLabel} onClick={tidyTags}>
+            {tidyLabel ?? "Instellen"}
           </button>
         </div>
       )}
 
       {error && <p className="text-red-700">{error}</p>}
-      {!data && !error && <p className="text-stone-500">Laden…</p>}
-      {data && data.length === 0 && (
-        <p className="text-stone-500">Nog geen recepten. Tik op “+ Nieuw” en plak een link.</p>
+
+      {!data && !error && (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3" aria-label="Laden" aria-busy="true">
+          {[0, 1, 2, 3].map((i) => (
+            <RecipeCardSkeleton key={i} />
+          ))}
+        </div>
       )}
-      {data && data.length > 0 && shown.length === 0 && (
-        <div className="py-8 text-center text-stone-500">
-          <p>Niets gevonden.</p>
-          {(badge > 0 || filters.gerecht || query) && (
+
+      {data && pool.length === 0 && (
+        <div className="mx-auto mt-10 max-w-xs text-center">
+          <p className="font-display text-xl font-semibold">{favoritesOnly ? "Nog geen favorieten" : "Nog geen recepten"}</p>
+          <p className="mt-2 text-stone-600">
+            {favoritesOnly
+              ? "Tik op het hartje bij een recept om het hier te bewaren."
+              : "Plak een link, foto of tekst en je eerste recept staat er zo."}
+          </p>
+          {!favoritesOnly && (
+            <a href="#/new" className="btn-primary mt-5">
+              Eerste recept toevoegen
+            </a>
+          )}
+        </div>
+      )}
+
+      {data && pool.length > 0 && shown.length === 0 && (
+        <div className="py-10 text-center text-stone-600">
+          <p className="font-display text-xl font-semibold text-stone-900">Niets gevonden</p>
+          {filtering && (
             <button
               type="button"
               className="mt-3 underline"
@@ -212,49 +203,18 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
         </div>
       )}
 
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <ul className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3">
         {shown.map((r) => (
           <li key={r.id}>
-            <a href={`#/r/${r.id}`} className="block overflow-hidden rounded-2xl bg-white shadow-sm">
-              {r.image_url ? (
-                <img src={r.image_url} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />
-              ) : (
-                <div className="flex aspect-[4/3] items-center justify-center bg-orange-100 text-3xl">🍲</div>
-              )}
-              <div className="p-3">
-                <h2 className="line-clamp-2 text-sm font-medium leading-snug">{r.title}</h2>
-                {r.total_minutes && <p className="mt-1 text-xs text-stone-500">{r.total_minutes} min</p>}
-              </div>
-            </a>
+            <RecipeCard recipe={r} favorite={isFav(r)} onToggleFavorite={() => toggleFavorite(r)} />
           </li>
         ))}
       </ul>
 
-      {data && data.length > 0 && (
-        <p className="mt-8 text-center text-sm text-stone-500">
-          <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={tidyTags}>
-            {tagging ?? "Categorieën opschonen"}
-          </button>
-          {" · "}
-          <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={translateAll}>
-            Engelse recepten vertalen
-          </button>
-        </p>
-      )}
-      <p className="mt-4 text-center text-sm text-stone-500">
-        <a href="#/import" className="underline">
-          Importeren uit Fond
-        </a>
-      </p>
       {sheetOpen && (
-        <FilterSheet
-          filters={filters}
-          onChange={setFilters}
-          count={shown.length}
-          labels={labels}
-          onClose={closeSheet}
-        />
+        <FilterSheet filters={filters} onChange={setFilters} count={shown.length} labels={labels} onClose={closeSheet} />
       )}
+      <BottomNav active={favoritesOnly ? "favorites" : "list"} />
     </main>
   );
 }

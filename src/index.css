@@ -1,14 +1,37 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+
+  /* Terracotta (primary) and olive (ingredient labels) replace Tailwind's orange and lime. */
+  --color-orange-100: #f6e3d8;
+  --color-orange-200: #ebc9b7;
+  --color-orange-600: #c4532f;
+  --color-orange-700: #b4492a;
+  --color-orange-800: #8f3820;
+  --color-orange-900: #6b2a18;
+  --color-lime-50: #eef0e2;
+  --color-lime-100: #e9edd9;
+  --color-lime-800: #55623a;
+  --color-lime-900: #3f4a27;
+}
+
 body {
-  background: #fffaf3;
-  color: #292524;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #fbf6ee;
+  color: #2b2420;
+  font-family: var(--font-sans);
   padding-bottom: env(safe-area-inset-bottom);
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
 }
 
 @utility btn {
-  @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition active:scale-95 disabled:opacity-50;
+  @apply inline-flex min-h-11 items-center justify-center rounded-2xl px-5 py-2.5 text-[15px] font-semibold transition active:scale-95 disabled:opacity-50;
 }
 @utility btn-primary {
   @apply btn bg-orange-700 text-white;
@@ -17,5 +40,5 @@ body {
   @apply btn bg-stone-200/70 text-stone-800;
 }
 @utility input {
-  @apply w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-base outline-none focus:border-orange-600;
+  @apply w-full rounded-2xl border border-stone-300 bg-white px-3.5 py-3 text-base outline-none focus:border-orange-700;
 }
