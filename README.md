@@ -4,7 +4,7 @@ Persoonlijke receptenapp (één gebruiker, één wachtwoord). Vite + React + Typ
 
 ## Functies (v0.1)
 - Recepten importeren via link (schema.org/Recipe), uit een foto/screenshot of uit geplakte tekst (AI), of handmatig invoeren
-- Tags, filteren en zoeken op titel/ingrediënt
+- Vaste categorieën (gerecht, hoofdingrediënt, tijd) met tabs en een filterpaneel; zoeken op titel/ingrediënt
 - Porties omrekenen
 - Kookmodus (stap voor stap, scherm blijft aan)
 - Installeerbaar als app (PWA), mobile-first
@@ -54,6 +54,13 @@ Een foto wordt in deze volgorde gezocht: (1) de foto van de **bronpagina** (de l
 - Bronfoto's worden gedownload en in de Supabase-bucket `recipe-images` bewaard (niet gehotlinkt, want social-media-links verlopen). Let op: dat is een kopie van andermans foto, bedoeld voor persoonlijk gebruik.
 - Het werk gebeurt in een Netlify *background function* (`generate-image-background`, mag minuten duren); de app ververst zelf tot de foto er is. Sites als Instagram blokkeren vaak het ophalen; dan valt het automatisch terug op AI.
 - AI-model aanpasbaar met `OPENAI_IMAGE_MODEL`. Kosten: een paar cent per AI-foto; controleer de actuele prijs bij OpenAI.
+
+## Categorieën en filters
+- **Gerecht** (precies één per recept): hoofdgerecht, soep, salade, lunch, dessert. Dit zijn de tabs bovenaan de lijst.
+- **Hoofdingrediënt**: vlees (met kip, rund, varken), vis, vegetarisch, pasta, rijst. Meerdere tegelijk kan; ze moeten dan allemaal kloppen.
+- **Tijd** wordt automatisch uit de totale tijd afgeleid (snel ≤ 30 min, rustig aan, langzaam ≥ 2 uur) en is dus geen tag.
+- **Eigen labels** (vrije tekst) blijven bestaan maar staan verborgen in het filterpaneel onder ‘Toon mijn labels’.
+- Tags worden automatisch voorgesteld uit trefwoorden (`src/lib/autotag.ts`). Onderaan de lijst staat ‘Categorieën opschonen’: zet voor bestaande recepten één gerecht en de juiste ingrediënt-tags, bewaart je eigen labels en verwijdert oude tags (oven, slowcooker, snel). Bij imports worden de tags van de bron niet overgenomen, zodat de lijst overzichtelijk blijft.
 
 ## Roadmap
 - Later, indien gewenst: boodschappenlijst, weekplanner

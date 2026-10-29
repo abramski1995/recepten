@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { UnauthorizedError, listRecipes, translateRecipe, updateRecipe } from "../lib/api.ts";
-import { autoTags, mergeTags } from "../lib/autotag.ts";
-import { filterRecipes, tagCounts } from "../lib/filter.ts";
+import { Chip } from "../components/Chip.tsx";
+import { FilterSheet } from "../components/FilterSheet.tsx";
+import { autoTags } from "../lib/autotag.ts";
+import { activeCount, customLabels, filterRecipes, noFilters, type Filters } from "../lib/filter.ts";
+import { GERECHTEN, TIJDEN, cleanTags, isGerecht, labelOf, sameTags } from "../lib/taxonomy.ts";
 import { looksDutch } from "../lib/lang.ts";
 import { useImagePolling } from "../lib/useImagePolling.ts";
 import { go } from "../lib/useRoute.ts";
@@ -12,30 +15,66 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
   const { data, error } = useLoad(listRecipes, onUnauthorized, [reload], true);
   useImagePolling(data, () => setReload((n) => n + 1));
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
+  const [filters, setFilters] = useState<Filters>(noFilters);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const closeSheet = useCallback(() => setSheetOpen(false), []);
   const [tagging, setTagging] = useState<string | null>(null);
 
-  const tags = useMemo(() => (data ? tagCounts(data) : []), [data]);
-  const shown = useMemo(() => (data ? filterRecipes(data, query, selected) : []), [data, query, selected]);
-  const toggle = (t: string) => setSelected((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
+  const shown = useMemo(() => (data ? filterRecipes(data, query, filters) : []), [data, query, filters]);
+  const labels = useMemo(() => (data ? customLabels(data) : []), [data]);
+  const withoutCategory = useMemo(() => (data ? data.filter((r) => !r.tags.some(isGerecht)).length : 0), [data]);
+  const badge = activeCount(filters);
 
-  // Adds suggested tags to recipes that miss them; existing tags are kept.
-  async function addSmartTags() {
+  // Removable chips for every active filter except the dish-type tabs (those are visible anyway).
+  const activeChips: { key: string; label: string; remove: () => void }[] = [
+    ...filters.ingredienten.map((id) => ({
+      key: id,
+      label: labelOf(id),
+      remove: () =>
+        setFilters((f) => ({
+          ...f,
+          ingredienten: f.ingredienten.filter((x) => x !== id),
+          vlees: id === "vlees" ? [] : f.vlees,
+        })),
+    })),
+    ...filters.vlees.map((id) => ({
+      key: id,
+      label: labelOf(id),
+      remove: () => setFilters((f) => ({ ...f, vlees: f.vlees.filter((x) => x !== id) })),
+    })),
+    ...(filters.tijd
+      ? [{ key: "tijd", label: TIJDEN.find((t) => t.id === filters.tijd)!.short, remove: () => setFilters((f) => ({ ...f, tijd: null })) }]
+      : []),
+    ...filters.eigen.map((l) => ({
+      key: `eigen-${l}`,
+      label: l,
+      remove: () => setFilters((f) => ({ ...f, eigen: f.eigen.filter((x) => x !== l) })),
+    })),
+  ];
+
+  // Gives every recipe one dish type and clean ingredient tags; own labels are kept.
+  async function tidyTags() {
     if (!data) return;
     const changes = data
-      .map((r) => ({ r, tags: mergeTags(r.tags, autoTags(r)) }))
-      .filter(({ r, tags }) => tags.length !== r.tags.length);
-    if (!confirm(`Tags automatisch toevoegen aan ${changes.length} recepten? Bestaande tags blijven staan.`)) return;
+      .map((r) => ({ r, tags: cleanTags(r.tags, autoTags(r)) }))
+      .filter(({ r, tags }) => !sameTags(r.tags, tags));
+    if (changes.length === 0) return alert("Alle categorieën zijn al in orde.");
+    if (
+      !confirm(
+        `Categorieën instellen voor ${changes.length} recepten? Je eigen labels blijven staan; oude tags zoals oven, slowcooker en snel verdwijnen (de tijd wordt automatisch bepaald).`,
+      )
+    )
+      return;
     try {
       for (const [i, { r, tags }] of changes.entries()) {
-        setTagging(`Tags toevoegen… ${i + 1} van ${changes.length}`);
+        setTagging(`Categorieën instellen… ${i + 1} van ${changes.length}`);
         const { id: _id, created_at: _c, updated_at: _u, ...input } = r;
         await updateRecipe(r.id, { ...input, tags });
       }
       setReload((n) => n + 1);
     } catch (e) {
       if (e instanceof UnauthorizedError) onUnauthorized();
-      else alert(e instanceof Error ? e.message : "Tags toevoegen mislukt");
+      else alert(e instanceof Error ? e.message : "Categorieën instellen mislukt");
     } finally {
       setTagging(null);
     }
@@ -54,7 +93,7 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
         const { id: _id, created_at: _c, updated_at: _u, ...input } = r;
         try {
           const nl = { ...input, ...(await translateRecipe(input)) };
-          await updateRecipe(r.id, { ...nl, tags: mergeTags(nl.tags, autoTags(nl)) });
+          await updateRecipe(r.id, { ...nl, tags: cleanTags(nl.tags, autoTags(nl)) });
         } catch (e) {
           if (e instanceof UnauthorizedError) throw e;
           failed++;
@@ -78,35 +117,75 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
         </button>
       </header>
 
-      <input
-        className="input mb-3"
-        type="search"
-        placeholder="Zoek op titel of ingrediënt…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-
-      {tags.length > 0 && (
-        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          {selected.length > 0 && (
-            <button
-              onClick={() => setSelected([])}
-              className="shrink-0 rounded-full border border-orange-700 px-3 py-1 text-sm text-orange-800"
-            >
-              ✕ Wis filters
-            </button>
+      <div className="mb-3 flex gap-2">
+        <input
+          className="input"
+          type="search"
+          placeholder="Zoek op titel of ingrediënt…"
+          aria-label="Zoek recept"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <button
+          type="button"
+          aria-label={badge > 0 ? `Filters, ${badge} actief` : "Filters"}
+          onClick={() => setSheetOpen(true)}
+          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-stone-800 text-[#fffaf3]"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+            <circle cx="16" cy="7" r="2" />
+            <circle cx="8" cy="17" r="2" />
+          </svg>
+          {badge > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-700 px-1 text-xs font-semibold text-white">
+              {badge}
+            </span>
           )}
-          {tags.map(({ tag: t, count }) => (
-            <button
-              key={t}
-              onClick={() => toggle(t)}
-              className={`shrink-0 rounded-full px-3 py-1 text-sm ${
-                selected.includes(t) ? "bg-orange-700 text-white" : "bg-stone-200/70 text-stone-700"
-              }`}
-            >
-              {t} <span className="opacity-60">{count}</span>
-            </button>
-          ))}
+        </button>
+      </div>
+
+      <div className="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1">
+        <Chip pressed={filters.gerecht === null} onClick={() => setFilters((f) => ({ ...f, gerecht: null }))}>
+          Alles
+        </Chip>
+        {GERECHTEN.map((g) => (
+          <Chip key={g.id} pressed={filters.gerecht === g.id} onClick={() => setFilters((f) => ({ ...f, gerecht: g.id }))}>
+            {g.label}
+          </Chip>
+        ))}
+      </div>
+
+      {data && data.length > 0 && (
+        <div className="mb-3 flex min-h-9 items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {activeChips.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                aria-label={`Verwijder filter ${c.label}`}
+                onClick={c.remove}
+                className="flex h-9 items-center gap-1.5 rounded-full bg-lime-100 pl-3.5 pr-2.5 text-sm font-semibold text-lime-900"
+              >
+                {c.label}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            ))}
+          </div>
+          <span className="shrink-0 text-sm text-stone-500">
+            {shown.length} {shown.length === 1 ? "recept" : "recepten"}
+          </span>
+        </div>
+      )}
+
+      {withoutCategory > 0 && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-orange-100 px-4 py-3 text-sm text-orange-900">
+          <span>{withoutCategory} recepten hebben nog geen categorie.</span>
+          <button type="button" className="btn-primary shrink-0" disabled={!!tagging} onClick={tidyTags}>
+            {tagging ?? "Instellen"}
+          </button>
         </div>
       )}
 
@@ -115,7 +194,23 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
       {data && data.length === 0 && (
         <p className="text-stone-500">Nog geen recepten. Tik op “+ Nieuw” en plak een link.</p>
       )}
-      {data && data.length > 0 && shown.length === 0 && <p className="text-stone-500">Niets gevonden.</p>}
+      {data && data.length > 0 && shown.length === 0 && (
+        <div className="py-8 text-center text-stone-500">
+          <p>Niets gevonden.</p>
+          {(badge > 0 || filters.gerecht || query) && (
+            <button
+              type="button"
+              className="mt-3 underline"
+              onClick={() => {
+                setFilters(noFilters);
+                setQuery("");
+              }}
+            >
+              Wis filters en zoekopdracht
+            </button>
+          )}
+        </div>
+      )}
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {shown.map((r) => (
@@ -137,8 +232,8 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
 
       {data && data.length > 0 && (
         <p className="mt-8 text-center text-sm text-stone-500">
-          <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={addSmartTags}>
-            {tagging ?? "Tags automatisch toevoegen"}
+          <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={tidyTags}>
+            {tagging ?? "Categorieën opschonen"}
           </button>
           {" · "}
           <button className="underline disabled:opacity-50" disabled={!!tagging} onClick={translateAll}>
@@ -151,6 +246,15 @@ export function RecipeList({ onUnauthorized }: { onUnauthorized: () => void }) {
           Importeren uit Fond
         </a>
       </p>
+      {sheetOpen && (
+        <FilterSheet
+          filters={filters}
+          onChange={setFilters}
+          count={shown.length}
+          labels={labels}
+          onClose={closeSheet}
+        />
+      )}
     </main>
   );
 }

@@ -10,7 +10,9 @@ import {
   translateRecipe,
   updateRecipe,
 } from "../lib/api.ts";
-import { autoTags, mergeTags } from "../lib/autotag.ts";
+import { TagPicker } from "../components/TagPicker.tsx";
+import { autoTags } from "../lib/autotag.ts";
+import { cleanTags } from "../lib/taxonomy.ts";
 import { looksDutch } from "../lib/lang.ts";
 import { imageToBase64Jpeg } from "../lib/image.ts";
 import { requestImage } from "../lib/images.ts";
@@ -27,7 +29,7 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
   const [recipe, setRecipe] = useState<RecipeInput>(emptyRecipe);
   const [ingredients, setIngredients] = useState("");
   const [steps, setSteps] = useState("");
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [importUrl, setImportUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
@@ -40,27 +42,24 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
     setRecipe(r);
     setIngredients(r.ingredients.join("\n"));
     setSteps(r.steps.join("\n"));
-    setTags(r.tags.join(", "));
+    setTags(r.tags);
   }
 
-  // Imports get suggested tags (kept next to whatever the source provided); the user can edit them.
+  // Imports get suggested category tags; the source's own tags (e.g. "dinner") are dropped to avoid clutter.
   // Links with structured data come in the site's own language, so those are translated to Dutch first.
   async function fillImported(r: RecipeInput, translate = false) {
     let full = { ...emptyRecipe, ...r };
-    let translated = false;
     if (translate && !looksDutch(full)) {
       setNotice("Vertalen naar Nederlands…");
       try {
         full = { ...full, ...(await translateRecipe(full)) };
-        translated = true;
       } catch (e) {
         if (e instanceof UnauthorizedError) throw e;
         setImportError("Vertalen is niet gelukt; het originele recept is ingevuld.");
       }
     }
     setNotice(null);
-    // Tags from a foreign-language source (e.g. "dinner") are dropped after translating; ours are Dutch.
-    fill({ ...full, tags: translated ? autoTags(full) : mergeTags(full.tags, autoTags(full)) });
+    fill({ ...full, tags: autoTags(full) });
   }
 
   function fail(e: unknown, report: (message: string) => void = setError) {
@@ -117,7 +116,7 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
       ...recipe,
       ingredients: lines(ingredients),
       steps: lines(steps),
-      tags: tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean),
+      tags: cleanTags(tags, []),
     };
     try {
       const saved = id ? await updateRecipe(id, payload) : await createRecipe(payload);
@@ -226,9 +225,7 @@ export function RecipeForm({ id, onUnauthorized }: { id?: string; onUnauthorized
         <Field label="Bereiding (één stap per regel)">
           <textarea className="input min-h-40" value={steps} onChange={(e) => setSteps(e.target.value)} />
         </Field>
-        <Field label="Tags (komma-gescheiden)">
-          <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} />
-        </Field>
+        <TagPicker value={tags} onChange={setTags} />
         <Field label="Notities">
           <textarea
             className="input min-h-24"

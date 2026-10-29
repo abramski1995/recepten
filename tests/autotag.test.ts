@@ -1,73 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { autoTags, mergeTags } from "../src/lib/autotag.ts";
-import { filterRecipes, tagCounts } from "../src/lib/filter.ts";
-import type { Recipe } from "../src/types.ts";
+import { autoTags } from "../src/lib/autotag.ts";
 
 const t = (title: string, ingredients: string[] = [], total_minutes: number | null = null, steps: string[] = []) =>
   autoTags({ title, ingredients, steps, total_minutes });
 
 describe("autoTags", () => {
-  it("tags pasta with meat as main course", () => {
-    const tags = t("Spaghetti Bolognese in winterse stijl", ["400 g rundergehakt", "300 g spaghetti"], 57);
-    expect(tags).toEqual(expect.arrayContaining(["hoofdgerecht", "pasta", "vlees"]));
-    expect(tags).not.toContain("vegetarisch");
+  it("gives exactly one dish type, first in the list", () => {
+    expect(t("Spaghetti Bolognese", ["400 g rundergehakt", "300 g spaghetti"])[0]).toBe("hoofdgerecht");
+    expect(t("Hollandse Erwtensoep (Snert)", ["worst"])[0]).toBe("soep");
+    expect(t("Tomatensoep", ["tomaten"])).toEqual(["soep", "vegetarisch"]);
+    expect(t("Tuna and Bean Salad", ["tuna"])[0]).toBe("salade");
+    expect(t("Torta di Mele (Apple Cake)", ["appels"])).toEqual(["dessert"]);
+    expect(t("Panino alla Caprese", ["ciabatta", "burrata"])).toEqual(["lunch", "vegetarisch"]);
   });
-  it("tags chicken as both vlees and kip", () => {
-    expect(t("Toscaanse kip uit de slowcooker", ["600 g kipfilet"], 177)).toEqual(
-      expect.arrayContaining(["vlees", "kip", "slowcooker"]),
-    );
+
+  it("tags meat with its kind", () => {
+    const bolognese = t("Spaghetti Bolognese", ["400 g rundergehakt", "100 g pancetta", "300 g spaghetti"]);
+    expect(bolognese).toEqual(expect.arrayContaining(["hoofdgerecht", "pasta", "vlees", "rund", "varken"]));
+    expect(bolognese).not.toContain("vegetarisch");
+    expect(t("Toscaanse kip", ["600 g kipfilet"])).toEqual(expect.arrayContaining(["vlees", "kip"]));
+    expect(t("Gehaktballen", ["500 g gehakt"])).toEqual(expect.arrayContaining(["vlees"]));
+    expect(t("Gehaktballen", ["500 g gehakt"])).not.toContain("rund");
   });
-  it("recognises soup, dessert, lunch and fish", () => {
-    expect(t("Hollandse Erwtensoep (Snert)", ["worst", "spliterwten"])).toContain("soep");
-    expect(t("Tomatensoep", ["tomaten"])).toEqual(expect.arrayContaining(["soep", "vegetarisch"]));
-    expect(t("Tomatensoep", ["tomaten"])).not.toContain("hoofdgerecht");
-    expect(t("Torta di Mele (Apple Cake)", ["appels", "meel"])).toEqual(expect.arrayContaining(["dessert"]));
-    expect(t("Torta di Mele (Apple Cake)", ["appels"])).not.toContain("hoofdgerecht");
-    expect(t("Panino alla Caprese", ["ciabatta", "burrata"])).toEqual(expect.arrayContaining(["lunch", "vegetarisch"]));
-    expect(t("Tonno Al Pomodoro", ["tonijn", "tomaten"])).toEqual(expect.arrayContaining(["vis", "hoofdgerecht"]));
+
+  it("recognises fish and vegetarian dishes", () => {
+    expect(t("Tonno Al Pomodoro", ["tonijn", "tomaten"])).toEqual(["hoofdgerecht", "vis"]);
+    expect(t("Pasta ai 4 Pomodori", ["tomaten", "pasta"])).toEqual(["hoofdgerecht", "pasta", "vegetarisch"]);
   });
-  it("does not treat fish sauce or speculaas as fish/meat", () => {
-    const tags = t("Gehakt met gember en limoen", ["1 el vissaus", "700 g rundergehakt"]);
-    expect(tags).not.toContain("vis");
+
+  it("does not treat fish sauce, tuna steaks, stock or speculaas as meat/fish", () => {
+    expect(t("Gehakt met gember", ["1 el vissaus", "700 g rundergehakt"])).not.toContain("vis");
+    expect(t("Tonno", ["2 x 120g tuna steaks"])).not.toContain("vlees");
+    const mussels = t("Mosselen Tom Kha Gai", ["1 kg mosselen", "250 ml kippenbouillon"]);
+    expect(mussels).toContain("vis");
+    expect(mussels).not.toContain("kip");
+    expect(mussels).not.toContain("vlees");
     expect(t("Speculaaskoekjes", ["speculaaskruiden"])).not.toContain("vlees");
+    expect(t("Biefstuk", ["2 steaks"])).toEqual(expect.arrayContaining(["vlees", "rund"]));
   });
-  it("ignores tuna steaks and stock when detecting meat", () => {
-    expect(t("Tonno Al Pomodoro", ["2 x 120g tuna steaks"])).not.toContain("vlees");
-    const soup = t("Mosselen Tom Kha Gai", ["1 kg mosselen", "250 ml kippenbouillon"]);
-    expect(soup).toEqual(expect.arrayContaining(["vis"]));
-    expect(soup).not.toContain("vlees");
-    expect(soup).not.toContain("kip");
-    expect(t("Biefstuk", ["2 steaks"])).toContain("vlees");
-  });
-  it("adds snel only for 30 minutes or less, and oven from the steps", () => {
-    expect(t("Salade met ei", ["ei"], 20)).toContain("snel");
-    expect(t("Stoof", ["rundvlees"], 200)).not.toContain("snel");
-    expect(t("Ovenschotel", ["kaas"], null, ["Verwarm de oven voor"])).toContain("oven");
-  });
-});
 
-describe("mergeTags", () => {
-  it("keeps existing tags, lowercases and dedupes", () => {
-    expect(mergeTags(["Eigen", "pasta"], ["pasta", "vlees"])).toEqual(["eigen", "pasta", "vlees"]);
-  });
-});
-
-const recipe = (title: string, tags: string[], ingredients: string[] = []): Recipe =>
-  ({ id: title, title, tags, ingredients, steps: [], created_at: "", updated_at: "" }) as unknown as Recipe;
-
-describe("filterRecipes / tagCounts", () => {
-  const list = [recipe("A", ["pasta", "vlees"], ["gehakt"]), recipe("B", ["pasta"]), recipe("C", ["soep"])];
-  it("requires all selected tags", () => {
-    expect(filterRecipes(list, "", ["pasta"]).map((r) => r.title)).toEqual(["A", "B"]);
-    expect(filterRecipes(list, "", ["pasta", "vlees"]).map((r) => r.title)).toEqual(["A"]);
-    expect(filterRecipes(list, "gehakt", ["pasta"]).map((r) => r.title)).toEqual(["A"]);
-    expect(filterRecipes(list, "", [])).toHaveLength(3);
-  });
-  it("counts tags, most common first", () => {
-    expect(tagCounts(list)).toEqual([
-      { tag: "pasta", count: 2 },
-      { tag: "soep", count: 1 },
-      { tag: "vlees", count: 1 },
-    ]);
+  it("no longer produces time or method tags", () => {
+    const tags = t("Snelle ovenschotel", ["kaas"], 20, ["Verwarm de oven voor"]);
+    expect(tags).not.toContain("snel");
+    expect(tags).not.toContain("oven");
   });
 });
